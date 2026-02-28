@@ -85,6 +85,14 @@
     return core.createProgressMap(chars, todayKey());
   }
 
+  function createSeenMap(chars) {
+    const map = {};
+    chars.forEach(function (item) {
+      map[item.char] = false;
+    });
+    return map;
+  }
+
   function createInitialState() {
     return {
       view: 'home',
@@ -98,11 +106,16 @@
       practice: {
         alphabet: 'hiragana',
         mode: 'char_to_romaji',
-        session: null
+        session: null,
+        notice: ''
       },
       progress: {
         hiragana: createProgressMap(ALPHABETS.hiragana.chars),
         katakana: createProgressMap(ALPHABETS.katakana.chars)
+      },
+      seenChars: {
+        hiragana: createSeenMap(ALPHABETS.hiragana.chars),
+        katakana: createSeenMap(ALPHABETS.katakana.chars)
       },
       completedGroups: {
         hiragana: new Array(ALPHABETS.hiragana.rows.length).fill(false),
@@ -241,6 +254,12 @@
   function startPracticeSession() {
     const practice = state.practice;
     const pool = getPracticePool(practice.alphabet);
+    if (pool.length < 4) {
+      state.practice.session = null;
+      state.practice.notice = 'Öppna Lär dig och gå igenom minst 4 tecken först.';
+      return;
+    }
+
     const picked = pickPracticeChars(pool, SESSION_QUESTION_COUNT, practice.alphabet);
 
     const questions = picked.map(function (charObj) {
@@ -257,14 +276,25 @@
       reveal: false,
       questions: questions
     };
+    state.practice.notice = '';
     updateStreak();
   }
 
   function getPracticePool(alphabetChoice) {
     if (alphabetChoice === 'mixed') {
-      return ALPHABETS.hiragana.chars.concat(ALPHABETS.katakana.chars);
+      return ALPHABETS.hiragana.chars
+        .filter(function (item) {
+          return state.seenChars.hiragana[item.char];
+        })
+        .concat(
+          ALPHABETS.katakana.chars.filter(function (item) {
+            return state.seenChars.katakana[item.char];
+          })
+        );
     }
-    return ALPHABETS[alphabetChoice].chars;
+    return ALPHABETS[alphabetChoice].chars.filter(function (item) {
+      return state.seenChars[alphabetChoice][item.char];
+    });
   }
 
   function pickPracticeChars(pool, count, alphabetChoice) {
@@ -530,6 +560,10 @@
     const current = findCharBySymbol(alphabet, group[learn.cardIndex][0]);
 
     if (!learn.quiz) {
+      state.seenChars[learn.alphabet][current.char] = true;
+    }
+
+    if (!learn.quiz) {
       speak(current.romaji);
     }
 
@@ -613,6 +647,7 @@
       '<button class="btn-soft toggle-btn ' + (practice.alphabet === 'katakana' ? 'active' : '') + '" data-action="set-practice-alphabet" data-value="katakana">Katakana</button>' +
       '<button class="btn-soft toggle-btn ' + (practice.alphabet === 'mixed' ? 'active' : '') + '" data-action="set-practice-alphabet" data-value="mixed">Blandat</button>' +
       '</div>' +
+      (practice.notice ? '<p class="feedback bad">' + practice.notice + '</p>' : '') +
       '<div style="margin-top:10px;"><button class="btn-main" data-action="start-practice">Starta session</button></div></article>';
 
     const session = practice.session;
@@ -768,9 +803,11 @@
       render();
     } else if (action === 'set-practice-mode') {
       state.practice.mode = value;
+      state.practice.notice = '';
       render();
     } else if (action === 'set-practice-alphabet') {
       state.practice.alphabet = value;
+      state.practice.notice = '';
       render();
     } else if (action === 'start-practice') {
       startPracticeSession();
