@@ -245,6 +245,93 @@ button {
   color: var(--bad);
 }
 
+.quiz-celebration {
+  position: relative;
+  border-radius: 16px;
+  padding: 12px 12px 10px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  border: 2px solid #b8c8ea;
+  animation: popIn 450ms ease-out;
+}
+
+.quiz-celebration.great {
+  background: linear-gradient(145deg, #f0f9ff 0%, #ecfff6 100%);
+  border-color: #89d3bf;
+}
+
+.quiz-celebration.perfect {
+  background: linear-gradient(145deg, #fff4d9 0%, #fff8ec 40%, #eefcff 100%);
+  border-color: #f5c565;
+  box-shadow: 0 10px 24px rgba(245, 197, 101, 0.24);
+}
+
+.quiz-celebration.try-again {
+  background: linear-gradient(145deg, #f4f8ff 0%, #fff8f8 100%);
+  border-color: #c7d4ea;
+}
+
+.celebration-text {
+  font-size: 1.06rem;
+  font-weight: 700;
+  margin: 4px 0 6px;
+}
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 14px;
+  border-radius: 4px;
+  opacity: 0;
+  animation: confettiDrop 900ms ease-out forwards;
+}
+
+.confetti-1 {
+  left: 10%;
+  top: -14px;
+  background: #ff8da1;
+  animation-delay: 80ms;
+}
+
+.confetti-2 {
+  left: 48%;
+  top: -16px;
+  background: #61d6b0;
+  animation-delay: 130ms;
+}
+
+.confetti-3 {
+  left: 82%;
+  top: -12px;
+  background: #ffd166;
+  animation-delay: 180ms;
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes confettiDrop {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(64px) rotate(130deg);
+    opacity: 0;
+  }
+}
+
 .options-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

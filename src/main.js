@@ -127,7 +127,8 @@
         lastDate: null,
         history: []
       },
-      badges: []
+      badges: [],
+      progressUpdatedAt: null
     };
   }
 
@@ -171,6 +172,27 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
 
+  function markProgressUpdated() {
+    state.progressUpdatedAt = new Date().toISOString();
+  }
+
+  function formatUpdatedAt(isoString) {
+    if (!isoString) {
+      return 'Inte uppdaterat ännu';
+    }
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+      return 'Inte uppdaterat ännu';
+    }
+    return date.toLocaleString('sv-SE', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
   function todayKey() {
     const d = new Date();
     const y = d.getFullYear();
@@ -200,9 +222,23 @@
     return core.getLearnedCount(state.progress[alphabetId], 3);
   }
 
+  function getSeenCount(alphabetId) {
+    return Object.keys(state.seenChars[alphabetId]).filter(function (char) {
+      return Boolean(state.seenChars[alphabetId][char]);
+    }).length;
+  }
+
   function getProgressPercent(alphabetId) {
     const total = ALPHABETS[alphabetId].chars.length;
     return core.getProgressPercent(state.progress[alphabetId], total, 3);
+  }
+
+  function getSeenPercent(alphabetId) {
+    const total = ALPHABETS[alphabetId].chars.length;
+    if (!total) {
+      return 0;
+    }
+    return Math.round((getSeenCount(alphabetId) / total) * 100);
   }
 
   function isGroupUnlocked(alphabetId, groupIndex) {
@@ -421,6 +457,7 @@
         state.completedGroups[state.learn.alphabet][state.learn.groupIndex] = true;
       }
       unlockBadges();
+      markProgressUpdated();
       saveState();
     }
 
@@ -465,7 +502,9 @@
     if (!data) {
       return;
     }
+    state.seenChars[group][char] = true;
     state.progress[group][char] = core.applyReview(data, correct, today);
+    markProgressUpdated();
   }
 
   function unlockBadges() {
@@ -540,8 +579,8 @@
       '<button class="btn-main" data-action="go-progress">⭐ Mina framsteg</button>' +
       '</article>' +
       '<article class="card progress-wrap">' +
-      progressBarHtml('Hiragana', getLearnedCount('hiragana'), ALPHABETS.hiragana.chars.length, getProgressPercent('hiragana')) +
-      progressBarHtml('Katakana', getLearnedCount('katakana'), ALPHABETS.katakana.chars.length, getProgressPercent('katakana')) +
+      progressBarHtml('Hiragana (upptäckta)', getSeenCount('hiragana'), ALPHABETS.hiragana.chars.length, getSeenPercent('hiragana')) +
+      progressBarHtml('Katakana (upptäckta)', getSeenCount('katakana'), ALPHABETS.katakana.chars.length, getSeenPercent('katakana')) +
       '</article>' +
       '</section>';
   }
@@ -560,6 +599,9 @@
     const current = findCharBySymbol(alphabet, group[learn.cardIndex][0]);
 
     if (!learn.quiz) {
+      if (!state.seenChars[learn.alphabet][current.char]) {
+        markProgressUpdated();
+      }
       state.seenChars[learn.alphabet][current.char] = true;
     }
 
@@ -589,8 +631,20 @@
       const quiz = learn.quiz;
       if (quiz.done) {
         const pct = Math.round((quiz.correct / quiz.questions.length) * 100);
+        const celebrationClass = pct >= 100 ? 'perfect' : pct >= 80 ? 'great' : 'try-again';
+        const celebrationText = pct >= 100
+          ? 'Wow! Perfekt resultat! Du är en riktig stjärna! 🌟'
+          : pct >= 80
+            ? 'Snyggt jobbat! Gruppen är godkänd! 🎉'
+            : 'Bra kämpat! Försök igen så fixar du det! 💪';
         learnBody =
-          '<article class="card"><h3>Mini-quiz klart</h3><p>Resultat: <strong>' + pct + '%</strong> (' + quiz.correct + '/' + quiz.questions.length + ')</p>' +
+          '<article class="card">' +
+          '<div class="quiz-celebration ' + celebrationClass + '">' +
+          '<div class="confetti confetti-1"></div><div class="confetti confetti-2"></div><div class="confetti confetti-3"></div>' +
+          '<h3>Mini-quiz klart</h3>' +
+          '<p class="celebration-text">' + celebrationText + '</p>' +
+          '<p>Resultat: <strong>' + pct + '%</strong> (' + quiz.correct + '/' + quiz.questions.length + ')</p>' +
+          '</div>' +
           '<p class="muted">Minst 80% krävs för att låsa upp nästa grupp.</p>' +
           '<button class="btn-main" data-action="close-learn-quiz">Tillbaka till gruppen</button></article>';
       } else {
@@ -699,12 +753,12 @@
   }
 
   function renderProgress() {
-    const hiraPct = getProgressPercent('hiragana');
-    const kataPct = getProgressPercent('katakana');
+    const hiraPct = getSeenPercent('hiragana');
+    const kataPct = getSeenPercent('katakana');
     const circles =
       '<div class="circle-row">' +
-      progressCircleHtml('Hiragana', hiraPct) +
-      progressCircleHtml('Katakana', kataPct) +
+      progressCircleHtml('Hiragana upptäckta', hiraPct) +
+      progressCircleHtml('Katakana upptäckta', kataPct) +
       '</div>';
 
     const hiraGrid = renderCharLevelGrid('hiragana');
@@ -719,7 +773,10 @@
       topBarHtml() +
       '<section class="progress-layout">' +
       '<article class="card"><button class="btn-soft" data-action="go-home">Hem</button></article>' +
-      '<article class="card"><h3>Framsteg</h3>' + circles + '<p class="muted">Hiragana: ' + getLearnedCount('hiragana') + '/46, Katakana: ' + getLearnedCount('katakana') + '/46</p></article>' +
+      '<article class="card"><h3>Framsteg</h3>' + circles +
+      '<p class="muted">Upptäckta: Hiragana ' + getSeenCount('hiragana') + '/46, Katakana ' + getSeenCount('katakana') + '/46</p>' +
+      '<p class="muted">Mästarnivå (L3+): Hiragana ' + getLearnedCount('hiragana') + '/46, Katakana ' + getLearnedCount('katakana') + '/46</p>' +
+      '<p class="muted">Senast uppdaterad: ' + formatUpdatedAt(state.progressUpdatedAt) + '</p></article>' +
       '<article class="card"><h3>Streak-kalender (senaste 28 dagar)</h3>' + calendar + '</article>' +
       '<article class="card"><h3>Badges</h3><div class="badge-grid">' + badges + '</div></article>' +
       '<article class="card"><h3>Hiragana nivåer</h3>' + hiraGrid + '</article>' +
