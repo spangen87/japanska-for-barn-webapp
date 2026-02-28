@@ -636,6 +636,15 @@
 
   function renderPractice() {
     const practice = state.practice;
+    const quickModeMenu =
+      '<article class="card practice-quick-menu">' +
+      '<div class="practice-quick-row">' +
+      '<span class="muted"><strong>Snabbval spelläge:</strong></span>' +
+      '<button class="btn-soft toggle-btn ' + (practice.mode === 'char_to_romaji' ? 'active' : '') + '" data-action="set-practice-mode" data-value="char_to_romaji">Tecken → Ljud</button>' +
+      '<button class="btn-soft toggle-btn ' + (practice.mode === 'sound_to_char' ? 'active' : '') + '" data-action="set-practice-mode" data-value="sound_to_char">Ljud → Tecken</button>' +
+      '</div>' +
+      '</article>';
+
     let sessionBody =
       '<article class="card"><h3>Öva</h3><p>Välj läge och alfabet. Sessionen innehåller ' + SESSION_QUESTION_COUNT + ' frågor.</p>' +
       '<div class="mode-toggle">' +
@@ -683,6 +692,7 @@
     app.innerHTML =
       topBarHtml() +
       '<section class="practice-layout">' +
+      quickModeMenu +
       '<article class="card"><button class="btn-soft" data-action="go-home">Hem</button></article>' +
       sessionBody +
       '</section>';

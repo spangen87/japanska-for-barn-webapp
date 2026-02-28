@@ -179,6 +179,17 @@ button {
   flex-wrap: wrap;
 }
 
+.practice-quick-menu {
+  display: none;
+}
+
+.practice-quick-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .toggle-btn.active {
   background: var(--sky);
   border-color: #5da5f0;
@@ -345,5 +356,14 @@ button {
 
   .learn-focus-card .action-row {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .practice-quick-menu {
+    display: block;
+    position: sticky;
+    top: 10px;
+    z-index: 20;
   }
 }
