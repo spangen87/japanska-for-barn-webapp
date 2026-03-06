@@ -26,3 +26,12 @@ Original prompt: Build a classic Snake game in this repo.
 - Ran syntax check: `node --check src/main.js` (pass).
 - Ran unit tests: `npm test` (7/7 pass).
 - Tried Playwright skill loop again after change, but it still fails with `ERR_MODULE_NOT_FOUND` for package `playwright` from `$CODEX_HOME/skills/develop-web-game/scripts/web_game_playwright_client.js`.
+
+- Follow-up request: also add simple words under "Lär dig", unlocked per alphabet when all groups are completed.
+- Added learn-unit support (`group`/`words`) in learn state and actions.
+- Added katakana word list for the learn word lesson.
+- Added locked "Enkla ord" card in learn group grid; unlock condition is all groups completed for current alphabet.
+- Added word-learning card flow (word, romaji, meaning, speak) and word-specific mini quiz in Learn view.
+- Added completion flag for word lesson per alphabet (`completedWordLessons`) when quiz score is >= 80%.
+- Updated Learn quiz result text/button labels to be context-aware for word lesson vs group lesson.
+- Re-ran checks after changes: `node --check src/main.js` and `npm test` (7/7 pass).
