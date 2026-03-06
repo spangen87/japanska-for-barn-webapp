@@ -57,6 +57,20 @@
     { id: 'fast_lightning', icon: '⚡', name: 'Snabb som blixten', rule: '10 rätt i rad i en session.' },
     { id: 'perfect_session', icon: '🎯', name: 'Perfekt session', rule: '100% rätt i en övningssession.' }
   ];
+  const SIMPLE_WORDS = [
+    { word: 'ねこ', romaji: 'neko', meaning: 'katt' },
+    { word: 'いぬ', romaji: 'inu', meaning: 'hund' },
+    { word: 'みず', romaji: 'mizu', meaning: 'vatten' },
+    { word: 'やま', romaji: 'yama', meaning: 'berg' },
+    { word: 'そら', romaji: 'sora', meaning: 'himmel' },
+    { word: 'はな', romaji: 'hana', meaning: 'blomma' },
+    { word: 'ともだち', romaji: 'tomodachi', meaning: 'kompis' },
+    { word: 'せんせい', romaji: 'sensei', meaning: 'lärare' },
+    { word: 'ごはん', romaji: 'gohan', meaning: 'mat' },
+    { word: 'くるま', romaji: 'kuruma', meaning: 'bil' },
+    { word: 'でんしゃ', romaji: 'densha', meaning: 'tåg' },
+    { word: 'あさ', romaji: 'asa', meaning: 'morgon' }
+  ];
 
   const ALPHABETS = {
     hiragana: buildAlphabet('Hiragana', HIRAGANA_ROWS),
@@ -105,6 +119,7 @@
       },
       practice: {
         alphabet: 'hiragana',
+        level: 'chars',
         mode: 'char_to_romaji',
         session: null,
         notice: ''
@@ -289,6 +304,23 @@
 
   function startPracticeSession() {
     const practice = state.practice;
+    if (practice.level === 'words') {
+      const questions = buildWordQuestions(SESSION_QUESTION_COUNT);
+      state.practice.session = {
+        index: 0,
+        correct: 0,
+        streak: 0,
+        bestStreak: 0,
+        done: false,
+        feedback: '',
+        reveal: false,
+        questions: questions
+      };
+      state.practice.notice = '';
+      updateStreak();
+      return;
+    }
+
     const pool = getPracticePool(practice.alphabet);
     if (pool.length < 4) {
       state.practice.session = null;
@@ -314,6 +346,33 @@
     };
     state.practice.notice = '';
     updateStreak();
+  }
+
+  function buildWordQuestions(count) {
+    const source = SIMPLE_WORDS.slice();
+    shuffle(source);
+    const picked = [];
+    for (let i = 0; i < count; i += 1) {
+      picked.push(source[i % source.length]);
+    }
+
+    return picked.map(function (wordObj) {
+      return createWordQuestion(wordObj);
+    });
+  }
+
+  function createWordQuestion(wordObj) {
+    const options = buildOptions(SIMPLE_WORDS, wordObj.meaning, function (item) {
+      return item.meaning;
+    });
+    return {
+      word: wordObj.word,
+      romaji: wordObj.romaji,
+      prompt: 'Vad betyder ordet?',
+      answer: wordObj.meaning,
+      options: options,
+      mode: 'word_to_meaning'
+    };
   }
 
   function getPracticePool(alphabetChoice) {
@@ -473,7 +532,9 @@
     const question = session.questions[session.index];
     const correct = value === question.answer;
 
-    applyReview(question.char, correct);
+    if (question.mode !== 'word_to_meaning') {
+      applyReview(question.char, correct);
+    }
 
     if (correct) {
       session.correct += 1;
@@ -690,26 +751,49 @@
 
   function renderPractice() {
     const practice = state.practice;
+    const isWordLevel = practice.level === 'words';
     const quickModeMenu =
       '<article class="card practice-quick-menu">' +
       '<div class="practice-quick-row">' +
+      '<span class="muted"><strong>Snabbval nivå:</strong></span>' +
+      '<button class="btn-soft toggle-btn ' + (practice.level === 'chars' ? 'active' : '') + '" data-action="set-practice-level" data-value="chars">Tecken</button>' +
+      '<button class="btn-soft toggle-btn ' + (practice.level === 'words' ? 'active' : '') + '" data-action="set-practice-level" data-value="words">Enkla ord</button>' +
+      '</div>' +
+      (isWordLevel
+        ? ''
+        : '<div class="practice-quick-row">' +
       '<span class="muted"><strong>Snabbval spelläge:</strong></span>' +
       '<button class="btn-soft toggle-btn ' + (practice.mode === 'char_to_romaji' ? 'active' : '') + '" data-action="set-practice-mode" data-value="char_to_romaji">Tecken → Ljud</button>' +
       '<button class="btn-soft toggle-btn ' + (practice.mode === 'sound_to_char' ? 'active' : '') + '" data-action="set-practice-mode" data-value="sound_to_char">Ljud → Tecken</button>' +
-      '</div>' +
+      '</div>') +
       '</article>';
 
     let sessionBody =
-      '<article class="card"><h3>Öva</h3><p>Välj läge och alfabet. Sessionen innehåller ' + SESSION_QUESTION_COUNT + ' frågor.</p>' +
+      '<article class="card"><h3>Öva</h3><p>' + (isWordLevel
+        ? 'Träna enkla japanska ord. Sessionen innehåller '
+        : 'Välj läge och alfabet. Sessionen innehåller ') + SESSION_QUESTION_COUNT + ' frågor.</p>' +
+      '<div class="mode-toggle">' +
+      '<button class="btn-soft toggle-btn ' + (practice.level === 'chars' ? 'active' : '') + '" data-action="set-practice-level" data-value="chars">Tecken</button>' +
+      '<button class="btn-soft toggle-btn ' + (practice.level === 'words' ? 'active' : '') + '" data-action="set-practice-level" data-value="words">Enkla ord</button>' +
+      '</div>' +
+      (isWordLevel
+        ? '<p class="muted" style="margin-top:8px;">Öva vanliga nybörjarord med japanska ord till svenska betydelser.</p>'
+        : '') +
+      (isWordLevel
+        ? ''
+        :
       '<div class="mode-toggle">' +
       '<button class="btn-soft toggle-btn ' + (practice.mode === 'char_to_romaji' ? 'active' : '') + '" data-action="set-practice-mode" data-value="char_to_romaji">Tecken → Ljud</button>' +
       '<button class="btn-soft toggle-btn ' + (practice.mode === 'sound_to_char' ? 'active' : '') + '" data-action="set-practice-mode" data-value="sound_to_char">Ljud → Tecken</button>' +
-      '</div>' +
+      '</div>') +
+      (isWordLevel
+        ? ''
+        :
       '<div class="alphabet-toggle" style="margin-top:8px;">' +
       '<button class="btn-soft toggle-btn ' + (practice.alphabet === 'hiragana' ? 'active' : '') + '" data-action="set-practice-alphabet" data-value="hiragana">Hiragana</button>' +
       '<button class="btn-soft toggle-btn ' + (practice.alphabet === 'katakana' ? 'active' : '') + '" data-action="set-practice-alphabet" data-value="katakana">Katakana</button>' +
       '<button class="btn-soft toggle-btn ' + (practice.alphabet === 'mixed' ? 'active' : '') + '" data-action="set-practice-alphabet" data-value="mixed">Blandat</button>' +
-      '</div>' +
+      '</div>') +
       (practice.notice ? '<p class="feedback bad">' + practice.notice + '</p>' : '') +
       '<div style="margin-top:10px;"><button class="btn-main" data-action="start-practice">Starta session</button></div></article>';
 
@@ -726,14 +810,17 @@
         const q = session.questions[session.index];
         if (q.mode === 'sound_to_char') {
           speak(q.romaji);
+        } else if (q.mode === 'word_to_meaning') {
+          speak(q.word);
         }
 
         sessionBody +=
           '<article class="card"><h3>Fråga ' + (session.index + 1) + '/' + session.questions.length + '</h3>' +
           '<p><strong>' + q.prompt + '</strong></p>' +
-          '<p class="big-char">' + (q.mode === 'char_to_romaji' ? q.char : '🔊') + '</p>' +
+          '<p class="big-char">' + (q.mode === 'char_to_romaji' ? q.char : q.mode === 'word_to_meaning' ? q.word : '🔊') + '</p>' +
+          (q.mode === 'word_to_meaning' ? '<p class="romaji">' + q.romaji + '</p>' : '') +
           '<div class="action-row" style="grid-template-columns:repeat(2,minmax(0,1fr));">' +
-          (q.mode === 'sound_to_char' ? '<button class="btn-soft" data-action="repeat-sound">🔊 Spela igen</button>' : '<div></div>') +
+          (q.mode === 'sound_to_char' || q.mode === 'word_to_meaning' ? '<button class="btn-soft" data-action="repeat-sound">🔊 Spela igen</button>' : '<div></div>') +
           '<div></div></div>' +
           '<div class="options-grid">' +
           q.options.map(function (option) {
@@ -872,6 +959,11 @@
       state.practice.mode = value;
       state.practice.notice = '';
       render();
+    } else if (action === 'set-practice-level') {
+      state.practice.level = value === 'words' ? 'words' : 'chars';
+      state.practice.session = null;
+      state.practice.notice = '';
+      render();
     } else if (action === 'set-practice-alphabet') {
       state.practice.alphabet = value;
       state.practice.notice = '';
@@ -885,7 +977,11 @@
       const session = state.practice.session;
       if (session && !session.done) {
         const q = session.questions[session.index];
-        speak(q.romaji);
+        if (q.mode === 'word_to_meaning') {
+          speak(q.word);
+        } else {
+          speak(q.romaji);
+        }
       }
     }
   });
