@@ -46,3 +46,10 @@ Original prompt: Build a classic Snake game in this repo.
 - Ran `npm test` (7/7 pass).
 - Skill validation: started local server and ran `$WEB_GAME_CLIENT`; still fails with `ERR_MODULE_NOT_FOUND` for package `playwright`.
 - Ensured intro view appears on each app load by overriding loaded state view to `intro` in `loadState()`.
+- New request: increase word training content to 10 groups with 5 words each, graded from easier to harder.
+- Changed `WORD_GROUP_SIZE` from 4 to 5.
+- Expanded `SIMPLE_WORDS` to 50 hiragana words ordered by increasing difficulty.
+- Expanded `SIMPLE_WORDS_KATAKANA` to 50 katakana loanwords ordered by increasing difficulty.
+- Updated `completedWordLessons` initialization to use `WORD_GROUP_SIZE` dynamically.
+- Verified word entry counts: hiragana=50, katakana=50.
+- Re-ran checks: `node --check src/main.js` and `npm test` (7/7 pass).

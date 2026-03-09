@@ -2,7 +2,7 @@
   const core = window.JapaneseAppCore;
   const STORAGE_KEY = 'japanskaBarnApp.v1';
   const SESSION_QUESTION_COUNT = 10;
-  const WORD_GROUP_SIZE = 4;
+  const WORD_GROUP_SIZE = 5;
   let pendingLearnFocus = false;
 
   const HIRAGANA_ROWS = [
@@ -64,13 +64,60 @@
     { word: 'みず', romaji: 'mizu', meaning: 'vatten' },
     { word: 'やま', romaji: 'yama', meaning: 'berg' },
     { word: 'そら', romaji: 'sora', meaning: 'himmel' },
+
     { word: 'はな', romaji: 'hana', meaning: 'blomma' },
+    { word: 'き', romaji: 'ki', meaning: 'träd' },
+    { word: 'うみ', romaji: 'umi', meaning: 'hav' },
+    { word: 'かわ', romaji: 'kawa', meaning: 'flod' },
+    { word: 'ゆき', romaji: 'yuki', meaning: 'snö' },
+
+    { word: 'あさ', romaji: 'asa', meaning: 'morgon' },
+    { word: 'ひる', romaji: 'hiru', meaning: 'middag' },
+    { word: 'よる', romaji: 'yoru', meaning: 'kväll' },
+    { word: 'あめ', romaji: 'ame', meaning: 'regn' },
+    { word: 'かぜ', romaji: 'kaze', meaning: 'vind' },
+
+    { word: 'ごはん', romaji: 'gohan', meaning: 'mat' },
+    { word: 'おちゃ', romaji: 'ocha', meaning: 'te' },
+    { word: 'りんご', romaji: 'ringo', meaning: 'äpple' },
+    { word: 'たまご', romaji: 'tamago', meaning: 'ägg' },
+    { word: 'さかな', romaji: 'sakana', meaning: 'fisk' },
+
     { word: 'ともだち', romaji: 'tomodachi', meaning: 'kompis' },
     { word: 'せんせい', romaji: 'sensei', meaning: 'lärare' },
-    { word: 'ごはん', romaji: 'gohan', meaning: 'mat' },
+    { word: 'がくせい', romaji: 'gakusei', meaning: 'elev' },
+    { word: 'かぞく', romaji: 'kazoku', meaning: 'familj' },
+    { word: 'こども', romaji: 'kodomo', meaning: 'barn' },
+
     { word: 'くるま', romaji: 'kuruma', meaning: 'bil' },
     { word: 'でんしゃ', romaji: 'densha', meaning: 'tåg' },
-    { word: 'あさ', romaji: 'asa', meaning: 'morgon' }
+    { word: 'じてんしゃ', romaji: 'jitensha', meaning: 'cykel' },
+    { word: 'えき', romaji: 'eki', meaning: 'station' },
+    { word: 'みち', romaji: 'michi', meaning: 'väg' },
+
+    { word: 'いえ', romaji: 'ie', meaning: 'hus' },
+    { word: 'へや', romaji: 'heya', meaning: 'rum' },
+    { word: 'まど', romaji: 'mado', meaning: 'fönster' },
+    { word: 'つくえ', romaji: 'tsukue', meaning: 'skrivbord' },
+    { word: 'いす', romaji: 'isu', meaning: 'stol' },
+
+    { word: 'とけい', romaji: 'tokei', meaning: 'klocka' },
+    { word: 'えんぴつ', romaji: 'enpitsu', meaning: 'penna' },
+    { word: 'ほん', romaji: 'hon', meaning: 'bok' },
+    { word: 'てがみ', romaji: 'tegami', meaning: 'brev' },
+    { word: 'しんぶん', romaji: 'shinbun', meaning: 'tidning' },
+
+    { word: 'たんじょうび', romaji: 'tanjoubi', meaning: 'födelsedag' },
+    { word: 'しゅくだい', romaji: 'shukudai', meaning: 'läxa' },
+    { word: 'べんきょう', romaji: 'benkyou', meaning: 'studier' },
+    { word: 'びょういん', romaji: 'byouin', meaning: 'sjukhus' },
+    { word: 'としょかん', romaji: 'toshokan', meaning: 'bibliotek' },
+
+    { word: 'じしょ', romaji: 'jisho', meaning: 'ordbok' },
+    { word: 'せいかつ', romaji: 'seikatsu', meaning: 'vardag' },
+    { word: 'ぶんか', romaji: 'bunka', meaning: 'kultur' },
+    { word: 'けいけん', romaji: 'keiken', meaning: 'erfarenhet' },
+    { word: 'しょうらい', romaji: 'shourai', meaning: 'framtid' }
   ];
   const SIMPLE_WORDS_KATAKANA = [
     { word: 'バス', romaji: 'basu', meaning: 'buss' },
@@ -78,13 +125,60 @@
     { word: 'テレビ', romaji: 'terebi', meaning: 'tv' },
     { word: 'ジュース', romaji: 'juusu', meaning: 'juice' },
     { word: 'ケーキ', romaji: 'keeki', meaning: 'tårta' },
-    { word: 'カメラ', romaji: 'kamera', meaning: 'kamera' },
-    { word: 'ホテル', romaji: 'hoteru', meaning: 'hotell' },
-    { word: 'タクシー', romaji: 'takushii', meaning: 'taxi' },
-    { word: 'ピアノ', romaji: 'piano', meaning: 'piano' },
-    { word: 'サラダ', romaji: 'sarada', meaning: 'sallad' },
+
+    { word: 'アイス', romaji: 'aisu', meaning: 'glass' },
     { word: 'コーヒー', romaji: 'koohii', meaning: 'kaffe' },
-    { word: 'アイス', romaji: 'aisu', meaning: 'glass' }
+    { word: 'サラダ', romaji: 'sarada', meaning: 'sallad' },
+    { word: 'ピザ', romaji: 'piza', meaning: 'pizza' },
+    { word: 'チーズ', romaji: 'chiizu', meaning: 'ost' },
+
+    { word: 'カメラ', romaji: 'kamera', meaning: 'kamera' },
+    { word: 'タクシー', romaji: 'takushii', meaning: 'taxi' },
+    { word: 'ホテル', romaji: 'hoteru', meaning: 'hotell' },
+    { word: 'ピアノ', romaji: 'piano', meaning: 'piano' },
+    { word: 'ギター', romaji: 'gitaa', meaning: 'gitarr' },
+
+    { word: 'スマホ', romaji: 'sumaho', meaning: 'smartphone' },
+    { word: 'パソコン', romaji: 'pasokon', meaning: 'dator' },
+    { word: 'ゲーム', romaji: 'geemu', meaning: 'spel' },
+    { word: 'アプリ', romaji: 'apuri', meaning: 'app' },
+    { word: 'インターネット', romaji: 'intaanetto', meaning: 'internet' },
+
+    { word: 'シャツ', romaji: 'shatsu', meaning: 'skjorta' },
+    { word: 'スカート', romaji: 'sukaato', meaning: 'kjol' },
+    { word: 'ジャケット', romaji: 'jaketto', meaning: 'jacka' },
+    { word: 'スニーカー', romaji: 'suniikaa', meaning: 'sneakers' },
+    { word: 'リュック', romaji: 'ryukku', meaning: 'ryggsäck' },
+
+    { word: 'レストラン', romaji: 'resutoran', meaning: 'restaurang' },
+    { word: 'スーパー', romaji: 'suupaa', meaning: 'stormarknad' },
+    { word: 'コンビニ', romaji: 'konbini', meaning: 'närbutik' },
+    { word: 'エレベーター', romaji: 'erebeetaa', meaning: 'hiss' },
+    { word: 'エスカレーター', romaji: 'esukareetaa', meaning: 'rulltrappa' },
+
+    { word: 'スポーツ', romaji: 'supootsu', meaning: 'sport' },
+    { word: 'サッカー', romaji: 'sakkaa', meaning: 'fotboll' },
+    { word: 'テニス', romaji: 'tenisu', meaning: 'tennis' },
+    { word: 'プール', romaji: 'puuru', meaning: 'pool' },
+    { word: 'トレーニング', romaji: 'toreeningu', meaning: 'träning' },
+
+    { word: 'プロジェクト', romaji: 'purojekuto', meaning: 'projekt' },
+    { word: 'スケジュール', romaji: 'sukejuuru', meaning: 'schema' },
+    { word: 'プレゼン', romaji: 'purezen', meaning: 'presentation' },
+    { word: 'アイデア', romaji: 'aidea', meaning: 'idé' },
+    { word: 'コミュニケーション', romaji: 'komyunikeeshon', meaning: 'kommunikation' },
+
+    { word: 'システム', romaji: 'shisutemu', meaning: 'system' },
+    { word: 'データ', romaji: 'deeta', meaning: 'data' },
+    { word: 'アルゴリズム', romaji: 'arugorizumu', meaning: 'algoritm' },
+    { word: 'パフォーマンス', romaji: 'pafoomansu', meaning: 'prestanda' },
+    { word: 'プラットフォーム', romaji: 'purattofoomu', meaning: 'plattform' },
+
+    { word: 'イノベーション', romaji: 'inobeeshon', meaning: 'innovation' },
+    { word: 'マネジメント', romaji: 'manejimento', meaning: 'ledning' },
+    { word: 'ストラテジー', romaji: 'sutoratejii', meaning: 'strategi' },
+    { word: 'グローバル', romaji: 'guroobaru', meaning: 'global' },
+    { word: 'サステナビリティ', romaji: 'sasutenabiriti', meaning: 'hållbarhet' }
   ];
 
   const ALPHABETS = {
@@ -154,8 +248,8 @@
         katakana: new Array(ALPHABETS.katakana.rows.length).fill(false)
       },
       completedWordLessons: {
-        hiragana: new Array(Math.ceil(SIMPLE_WORDS.length / 4)).fill(false),
-        katakana: new Array(Math.ceil(SIMPLE_WORDS_KATAKANA.length / 4)).fill(false)
+        hiragana: new Array(Math.ceil(SIMPLE_WORDS.length / WORD_GROUP_SIZE)).fill(false),
+        katakana: new Array(Math.ceil(SIMPLE_WORDS_KATAKANA.length / WORD_GROUP_SIZE)).fill(false)
       },
       streak: {
         current: 0,
