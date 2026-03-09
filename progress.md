@@ -35,3 +35,14 @@ Original prompt: Build a classic Snake game in this repo.
 - Added completion flag for word lesson per alphabet (`completedWordLessons`) when quiz score is >= 80%.
 - Updated Learn quiz result text/button labels to be context-aware for word lesson vs group lesson.
 - Re-ran checks after changes: `node --check src/main.js` and `npm test` (7/7 pass).
+
+- New request: split word lesson into smaller groups and add Japanese greeting on app entry.
+- Updated initial app view to `intro` and added intro screen with Japanese greeting `こんにちは` plus start button.
+- Added word grouping logic in Learn (`WORD_GROUP_SIZE = 4`) and split each alphabet's 12 words into 3 groups.
+- Replaced single "Enkla ord" card with sequentially unlocked `Ordgrupp` cards (4 words each).
+- Added `learn.wordGroupIndex` and changed word quiz completion tracking to per-word-group arrays in `completedWordLessons`.
+- Updated Learn flow/labels/navigation to use selected word group for cards and quizzes.
+- Ran `node --check src/main.js` (pass).
+- Ran `npm test` (7/7 pass).
+- Skill validation: started local server and ran `$WEB_GAME_CLIENT`; still fails with `ERR_MODULE_NOT_FOUND` for package `playwright`.
+- Ensured intro view appears on each app load by overriding loaded state view to `intro` in `loadState()`.

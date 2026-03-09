@@ -2,6 +2,7 @@
   const core = window.JapaneseAppCore;
   const STORAGE_KEY = 'japanskaBarnApp.v1';
   const SESSION_QUESTION_COUNT = 10;
+  const WORD_GROUP_SIZE = 4;
   let pendingLearnFocus = false;
 
   const HIRAGANA_ROWS = [
@@ -123,11 +124,12 @@
 
   function createInitialState() {
     return {
-      view: 'home',
+      view: 'intro',
       learn: {
         alphabet: 'hiragana',
         unit: 'group',
         groupIndex: 0,
+        wordGroupIndex: 0,
         cardIndex: 0,
         quiz: null,
         groupsCollapsed: false
@@ -152,8 +154,8 @@
         katakana: new Array(ALPHABETS.katakana.rows.length).fill(false)
       },
       completedWordLessons: {
-        hiragana: false,
-        katakana: false
+        hiragana: new Array(Math.ceil(SIMPLE_WORDS.length / 4)).fill(false),
+        katakana: new Array(Math.ceil(SIMPLE_WORDS_KATAKANA.length / 4)).fill(false)
       },
       streak: {
         current: 0,
@@ -174,7 +176,9 @@
       }
       const parsed = JSON.parse(raw);
       const baseline = createInitialState();
-      return deepMerge(baseline, parsed);
+      const merged = deepMerge(baseline, parsed);
+      merged.view = 'intro';
+      return merged;
     } catch (error) {
       return createInitialState();
     }
@@ -295,7 +299,7 @@
     const learn = state.learn;
     let questions = [];
     if (learn.unit === 'words') {
-      const words = getLearnWordList(learn.alphabet);
+      const words = getCurrentLearnWords();
       questions = words.map(function (wordObj) {
         const options = buildOptions(words, wordObj.meaning, function (item) {
           return item.meaning;
@@ -432,10 +436,34 @@
     return alphabetId === 'katakana' ? SIMPLE_WORDS_KATAKANA : SIMPLE_WORDS;
   }
 
+  function getLearnWordGroups(alphabetId) {
+    const words = getLearnWordList(alphabetId);
+    const groups = [];
+    for (let i = 0; i < words.length; i += WORD_GROUP_SIZE) {
+      groups.push(words.slice(i, i + WORD_GROUP_SIZE));
+    }
+    return groups;
+  }
+
+  function getCurrentLearnWords() {
+    const groups = getLearnWordGroups(state.learn.alphabet);
+    return groups[state.learn.wordGroupIndex] || groups[0] || [];
+  }
+
   function isWordLessonUnlocked(alphabetId) {
     return state.completedGroups[alphabetId].every(function (done) {
       return done;
     });
+  }
+
+  function isWordGroupUnlocked(alphabetId, wordGroupIndex) {
+    if (!isWordLessonUnlocked(alphabetId)) {
+      return false;
+    }
+    if (wordGroupIndex === 0) {
+      return true;
+    }
+    return Boolean(state.completedWordLessons[alphabetId][wordGroupIndex - 1]);
   }
 
   function pickPracticeChars(pool, count, alphabetChoice) {
@@ -560,7 +588,7 @@
       const percent = Math.round((quiz.correct / quiz.questions.length) * 100);
       if (percent >= 80) {
         if (state.learn.unit === 'words') {
-          state.completedWordLessons[state.learn.alphabet] = true;
+          state.completedWordLessons[state.learn.alphabet][state.learn.wordGroupIndex] = true;
         } else {
           state.completedGroups[state.learn.alphabet][state.learn.groupIndex] = true;
         }
@@ -649,14 +677,16 @@
   function goNextLearnCard(step) {
     const learn = state.learn;
     const maxIndex = learn.unit === 'words'
-      ? getLearnWordList(learn.alphabet).length - 1
+      ? getCurrentLearnWords().length - 1
       : ALPHABETS[learn.alphabet].rows[learn.groupIndex].length - 1;
     learn.cardIndex = Math.min(maxIndex, Math.max(0, learn.cardIndex + step));
   }
 
   function render() {
     saveState();
-    if (state.view === 'home') {
+    if (state.view === 'intro') {
+      renderIntro();
+    } else if (state.view === 'home') {
       renderHome();
     } else if (state.view === 'learn') {
       renderLearn();
@@ -679,6 +709,16 @@
 
   function topBarHtml() {
     return '<div class="topbar"><h1>Japanska för barn</h1><div class="streak-pill">🔥 Streak: ' + state.streak.current + ' dagar</div></div>';
+  }
+
+  function renderIntro() {
+    app.innerHTML =
+      '<section class="intro-screen card">' +
+      '<p class="intro-japanese" lang="ja">こんにちは</p>' +
+      '<p class="intro-romaji">Ko ni chi wa!</p>' +
+      '<p class="muted">Välkommen till japanska för barn.</p>' +
+      '<button class="btn-main" data-action="start-game">Starta</button>' +
+      '</section>';
   }
 
   function renderHome() {
@@ -710,7 +750,8 @@
     const alphabet = ALPHABETS[learn.alphabet];
     const isWordUnit = learn.unit === 'words';
     const group = isWordUnit ? null : alphabet.rows[learn.groupIndex];
-    const wordList = getLearnWordList(learn.alphabet);
+    const wordGroups = getLearnWordGroups(learn.alphabet);
+    const wordList = wordGroups[learn.wordGroupIndex] || wordGroups[0] || [];
     const current = isWordUnit
       ? wordList[learn.cardIndex]
       : findCharBySymbol(alphabet, group[learn.cardIndex][0]);
@@ -742,16 +783,19 @@
         );
       })
       .join('');
-    const wordsUnlocked = isWordLessonUnlocked(learn.alphabet);
-    const wordsDone = state.completedWordLessons[learn.alphabet];
-    const wordsCard =
-      '<div class="group-card ' + (wordsUnlocked ? '' : 'locked') + '">' +
-      '<h4>Enkla ord ' + (wordsDone ? '✅' : wordsUnlocked ? '' : '🔒') + '</h4>' +
-      '<p class="muted" style="font-family:var(--jp-font)">' + wordList.slice(0, 3).map(function (item) {
-        return item.word;
-      }).join(' ') + '</p>' +
-      '<button class="btn-soft" data-action="pick-word-lesson" ' + (wordsUnlocked ? '' : 'disabled') + '>Välj</button>' +
-      '</div>';
+    const wordsCard = wordGroups.map(function (words, index) {
+      const unlocked = isWordGroupUnlocked(learn.alphabet, index);
+      const done = state.completedWordLessons[learn.alphabet][index];
+      return (
+        '<div class="group-card ' + (unlocked ? '' : 'locked') + '">' +
+        '<h4>Ordgrupp ' + (index + 1) + ' ' + (done ? '✅' : unlocked ? '' : '🔒') + '</h4>' +
+        '<p class="muted" style="font-family:var(--jp-font)">' + words.map(function (item) {
+          return item.word;
+        }).join(' ') + '</p>' +
+        '<button class="btn-soft" data-action="pick-word-lesson" data-word-group-index="' + index + '" ' + (unlocked ? '' : 'disabled') + '>Välj</button>' +
+        '</div>'
+      );
+    }).join('');
 
     let learnBody = '';
     if (learn.quiz) {
@@ -791,7 +835,7 @@
     } else {
       learnBody =
         '<article class="card learn-focus-card" id="learn-focus">' +
-        '<h3>' + (isWordUnit ? alphabet.name + ' Enkla ord' : alphabet.name + ' Grupp ' + (learn.groupIndex + 1)) + '</h3>' +
+        '<h3>' + (isWordUnit ? alphabet.name + ' Ordgrupp ' + (learn.wordGroupIndex + 1) : alphabet.name + ' Grupp ' + (learn.groupIndex + 1)) + '</h3>' +
         '<p class="big-char">' + (isWordUnit ? current.word : current.char) + '</p>' +
         '<p class="romaji">' + (isWordUnit ? current.romaji + ' - ' + current.meaning : current.romaji) + '</p>' +
         (isWordUnit
@@ -979,7 +1023,9 @@
     const action = target.dataset.action;
     const value = target.dataset.value;
 
-    if (action === 'go-home') {
+    if (action === 'start-game') {
+      setView('home');
+    } else if (action === 'go-home') {
       setView('home');
     } else if (action === 'go-learn') {
       setView('learn');
@@ -991,6 +1037,7 @@
       state.learn.alphabet = value;
       state.learn.unit = 'group';
       state.learn.groupIndex = 0;
+      state.learn.wordGroupIndex = 0;
       state.learn.cardIndex = 0;
       state.learn.quiz = null;
       state.learn.groupsCollapsed = false;
@@ -1010,8 +1057,10 @@
         render();
       }
     } else if (action === 'pick-word-lesson') {
-      if (isWordLessonUnlocked(state.learn.alphabet)) {
+      const wordGroupIndex = Number(target.dataset.wordGroupIndex || 0);
+      if (isWordGroupUnlocked(state.learn.alphabet, wordGroupIndex)) {
         state.learn.unit = 'words';
+        state.learn.wordGroupIndex = wordGroupIndex;
         state.learn.cardIndex = 0;
         state.learn.quiz = null;
         state.learn.groupsCollapsed = true;
