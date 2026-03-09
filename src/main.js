@@ -72,8 +72,8 @@
     { word: 'ゆき', romaji: 'yuki', meaning: 'snö' },
 
     { word: 'あさ', romaji: 'asa', meaning: 'morgon' },
-    { word: 'ひる', romaji: 'hiru', meaning: 'middag' },
-    { word: 'よる', romaji: 'yoru', meaning: 'kväll' },
+    { word: 'ひる', romaji: 'hiru', meaning: 'mitt på dagen' },
+    { word: 'よる', romaji: 'yoru', meaning: 'natt' },
     { word: 'あめ', romaji: 'ame', meaning: 'regn' },
     { word: 'かぜ', romaji: 'kaze', meaning: 'vind' },
 
@@ -858,7 +858,7 @@
     }
 
     if (!learn.quiz) {
-      speak(isWordUnit ? current.word : current.romaji);
+      speak(isWordUnit ? current.word : current.char);
     }
 
     const groupCards = alphabet.rows
@@ -1018,7 +1018,7 @@
       } else {
         const q = session.questions[session.index];
         if (q.mode === 'sound_to_char') {
-          speak(q.romaji);
+          speak(q.char);
         } else if (q.mode === 'word_to_meaning') {
           speak(q.word);
         }
@@ -1175,7 +1175,7 @@
         const alphabet = ALPHABETS[state.learn.alphabet];
         const symbol = alphabet.rows[state.learn.groupIndex][state.learn.cardIndex][0];
         const charObj = findCharBySymbol(alphabet, symbol);
-        speak(charObj.romaji);
+        speak(charObj.char);
       }
     } else if (action === 'start-learn-quiz') {
       startLearnQuiz();
@@ -1209,6 +1209,8 @@
         const q = session.questions[session.index];
         if (q.mode === 'word_to_meaning') {
           speak(q.word);
+        } else if (q.mode === 'sound_to_char') {
+          speak(q.char);
         } else {
           speak(q.romaji);
         }

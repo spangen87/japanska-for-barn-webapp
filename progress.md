@@ -53,3 +53,8 @@ Original prompt: Build a classic Snake game in this repo.
 - Updated `completedWordLessons` initialization to use `WORD_GROUP_SIZE` dynamically.
 - Verified word entry counts: hiragana=50, katakana=50.
 - Re-ran checks: `node --check src/main.js` and `npm test` (7/7 pass).
+- Validation request: audited kana->romaji mappings and full word lists for correctness.
+- Found a pronunciation issue: kana audio was spoken from romaji text for character drills (`shi`, `tsu`, etc.), which can produce incorrect TTS pronunciation.
+- Fixed kana audio playback to speak the actual kana character in Learn and Practice sound mode.
+- Refined two Swedish meanings for clarity: `ひる` -> `mitt på dagen`, `よる` -> `natt`.
+- Re-ran checks: `node --check src/main.js` and `npm test` (7/7 pass).
