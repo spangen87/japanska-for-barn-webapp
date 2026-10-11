@@ -1,3 +1,6 @@
+// The app runs in Sweden; date bugs only show up with a positive UTC offset.
+process.env.TZ = 'Europe/Stockholm';
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -58,6 +61,36 @@ function loadApp(savedState) {
   };
 }
 
+const SEEN_FIRST_HIRAGANA_ROW = {
+  seenChars: { hiragana: { あ: true, い: true, う: true, え: true, お: true } }
+};
+
+function localDateKey(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+  ].join('-');
+}
+
+function finishPracticeSession(app) {
+  let session = app.state().practice.session;
+  while (!session.done) {
+    app.click('answer-practice', { value: session.questions[session.index].answer });
+    app.click('next-practice');
+    session = app.state().practice.session;
+  }
+}
+
+function finishLearnQuiz(app) {
+  let quiz = app.state().learn.quiz;
+  while (!quiz.done) {
+    app.click('answer-learn-quiz', { value: quiz.questions[quiz.index].answer });
+    app.click('next-learn-quiz');
+    quiz = app.state().learn.quiz;
+  }
+}
+
 test('intro romaji keeps the ん in こんにちは', () => {
   const app = loadApp();
   assert.match(app.html(), /Kon-ni-chi-wa/);
@@ -105,4 +138,110 @@ test('mixed practice options are unique when hiragana and katakana share sounds'
     assert.equal(new Set(question.options).size, 4);
     assert.equal(question.options.includes(question.answer), true);
   });
+});
+
+test('practice keeps the answered question on screen with right and wrong options marked', () => {
+  const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
+  app.click('go-practice');
+  app.click('start-practice');
+  const question = app.state().practice.session.questions[0];
+  const wrong = question.options.find((option) => option !== question.answer);
+
+  app.click('answer-practice', { value: wrong });
+
+  assert.equal(app.state().practice.session.index, 0);
+  assert.match(app.html(), new RegExp('option-btn correct"[^>]*>' + question.answer + '<'));
+  assert.match(app.html(), new RegExp('option-btn wrong"[^>]*>' + wrong + '<'));
+  assert.match(app.html(), /class="feedback bad"/);
+});
+
+test('practice moves to the next question when the child presses next', () => {
+  const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
+  app.click('go-practice');
+  app.click('start-practice');
+  const question = app.state().practice.session.questions[0];
+
+  app.click('answer-practice', { value: question.answer });
+  app.click('next-practice');
+
+  assert.equal(app.state().practice.session.index, 1);
+});
+
+test('practice plays the correct character after an answer', () => {
+  const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
+  app.click('go-practice');
+  app.click('start-practice');
+  const question = app.state().practice.session.questions[0];
+
+  app.click('answer-practice', { value: question.answer });
+
+  assert.equal(app.spoken.at(-1), question.char);
+});
+
+test('learn quiz shows feedback on the answered question before moving on', () => {
+  const app = loadApp();
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+  const question = app.state().learn.quiz.questions[0];
+
+  app.click('answer-learn-quiz', { value: question.answer });
+  assert.equal(app.state().learn.quiz.index, 0);
+  assert.match(app.html(), /class="feedback ok"/);
+
+  app.click('next-learn-quiz');
+  assert.equal(app.state().learn.quiz.index, 1);
+});
+
+test('streak calendar marks today when the child practised today', () => {
+  const today = localDateKey(new Date());
+  const app = loadApp({ streak: { current: 1, best: 1, lastDate: today, history: [today] } });
+  app.click('go-progress');
+
+  const cells = [...app.html().matchAll(/<div class="day-cell ([^"]*)">(\d+)<\/div>/g)];
+  const todayCell = cells.at(-1);
+  assert.equal(todayCell[2], String(new Date().getDate()));
+  assert.equal(todayCell[1], 'active');
+});
+
+test('streak pill shows zero after a missed day', () => {
+  const longAgo = localDateKey(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000));
+  const app = loadApp({ streak: { current: 5, best: 5, lastDate: longAgo, history: [longAgo] } });
+  app.click('start-game');
+
+  assert.match(app.html(), /Streak: 0 dagar/);
+});
+
+test('streak pill uses singular for one day', () => {
+  const today = localDateKey(new Date());
+  const app = loadApp({ streak: { current: 1, best: 1, lastDate: today, history: [today] } });
+  app.click('start-game');
+
+  assert.match(app.html(), /Streak: 1 dag</);
+});
+
+test('starting a practice session does not count towards the streak', () => {
+  const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
+  app.click('go-practice');
+  app.click('start-practice');
+
+  assert.equal(app.state().streak.lastDate, null);
+});
+
+test('finishing a practice session counts towards the streak', () => {
+  const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
+  app.click('go-practice');
+  app.click('start-practice');
+  finishPracticeSession(app);
+
+  assert.equal(app.state().streak.lastDate, localDateKey(new Date()));
+  assert.equal(app.state().streak.current, 1);
+});
+
+test('finishing a learn quiz counts towards the streak', () => {
+  const app = loadApp();
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+  finishLearnQuiz(app);
+
+  assert.equal(app.state().streak.lastDate, localDateKey(new Date()));
 });

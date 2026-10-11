@@ -433,6 +433,7 @@
       correct: 0,
       done: false,
       feedback: '',
+      answered: null,
       questions: questions
     };
   }
@@ -448,11 +449,11 @@
         bestStreak: 0,
         done: false,
         feedback: '',
+        answered: null,
         reveal: false,
         questions: questions
       };
       state.practice.notice = '';
-      updateStreak();
       return;
     }
 
@@ -480,11 +481,11 @@
       bestStreak: 0,
       done: false,
       feedback: '',
+      answered: null,
       reveal: false,
       questions: questions
     };
     state.practice.notice = '';
-    updateStreak();
   }
 
   function buildWordQuestions(count) {
@@ -653,7 +654,7 @@
 
   function answerLearnQuiz(value) {
     const quiz = state.learn.quiz;
-    if (!quiz || quiz.done) {
+    if (!quiz || quiz.done || quiz.answered) {
       return;
     }
 
@@ -661,11 +662,23 @@
     const correct = question.answer === value;
     if (correct) {
       quiz.correct += 1;
-      quiz.feedback = 'Rätt!';
+      quiz.feedback = '✅ Rätt!';
     } else {
-      quiz.feedback = 'Inte riktigt. Rätt svar: ' + question.answer;
+      quiz.feedback = '❌ Inte riktigt. Rätt svar: ' + question.answer;
+    }
+    quiz.answered = { value: value, correct: correct };
+
+    render();
+  }
+
+  function nextLearnQuizQuestion() {
+    const quiz = state.learn.quiz;
+    if (!quiz || quiz.done || !quiz.answered) {
+      return;
     }
 
+    quiz.answered = null;
+    quiz.feedback = '';
     quiz.index += 1;
     if (quiz.index >= quiz.questions.length) {
       quiz.done = true;
@@ -677,9 +690,9 @@
           state.completedGroups[state.learn.alphabet][state.learn.groupIndex] = true;
         }
       }
+      updateStreak();
       unlockBadges();
       markProgressUpdated();
-      saveState();
     }
 
     render();
@@ -687,7 +700,7 @@
 
   function answerPractice(value) {
     const session = state.practice.session;
-    if (!session || session.done) {
+    if (!session || session.done || session.answered) {
       return;
     }
 
@@ -707,12 +720,24 @@
       session.streak = 0;
       session.feedback = '❌ Fel, rätt svar är ' + question.answer;
     }
+    session.answered = { value: value, correct: correct };
 
+    render();
+  }
+
+  function nextPracticeQuestion() {
+    const session = state.practice.session;
+    if (!session || session.done || !session.answered) {
+      return;
+    }
+
+    session.answered = null;
+    session.feedback = '';
     session.index += 1;
     if (session.index >= session.questions.length) {
       session.done = true;
+      updateStreak();
       unlockBadges();
-      saveState();
     }
 
     render();
@@ -792,7 +817,32 @@
   }
 
   function topBarHtml() {
-    return '<div class="topbar"><h1>Japanska för barn</h1><div class="streak-pill">🔥 Streak: ' + state.streak.current + ' dagar</div></div>';
+    const days = core.getActiveStreak(state.streak, todayKey());
+    return '<div class="topbar"><h1>Japanska för barn</h1><div class="streak-pill">🔥 Streak: ' + days + (days === 1 ? ' dag' : ' dagar') + '</div></div>';
+  }
+
+  function optionButtonsHtml(question, answered, action) {
+    return '<div class="options-grid">' + question.options.map(function (option) {
+      let resultClass = '';
+      if (answered && option === question.answer) {
+        resultClass = ' correct';
+      } else if (answered && option === answered.value) {
+        resultClass = ' wrong';
+      }
+      return '<button class="btn-soft option-btn' + resultClass + '" data-action="' + action + '" data-value="' + option + '"' + (answered ? ' disabled' : '') + '>' + option + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function feedbackHtml(text, answered) {
+    const resultClass = answered ? (answered.correct ? ' ok' : ' bad') : '';
+    return '<p class="feedback' + resultClass + '">' + (text || '') + '</p>';
+  }
+
+  function nextButtonHtml(answered, action, isLastQuestion) {
+    if (!answered) {
+      return '';
+    }
+    return '<button class="btn-main" data-action="' + action + '">' + (isLastQuestion ? 'Se resultat' : 'Nästa →') + '</button>';
   }
 
   function renderIntro() {
@@ -908,14 +958,16 @@
           '<button class="btn-main" data-action="close-learn-quiz">Tillbaka till gruppen</button></article>';
       } else {
         const q = quiz.questions[quiz.index];
+        if (quiz.answered) {
+          speak(q.promptChar);
+        }
         learnBody =
           '<article class="card"><h3>Mini-quiz (' + (quiz.index + 1) + '/' + quiz.questions.length + ')</h3>' +
           '<p class="big-char">' + q.promptChar + '</p>' +
-          '<div class="options-grid">' +
-          q.options.map(function (option) {
-            return '<button class="btn-soft" data-action="answer-learn-quiz" data-value="' + option + '">' + option + '</button>';
-          }).join('') +
-          '</div><p class="feedback">' + (quiz.feedback || '') + '</p></article>';
+          optionButtonsHtml(q, quiz.answered, 'answer-learn-quiz') +
+          feedbackHtml(quiz.feedback, quiz.answered) +
+          nextButtonHtml(quiz.answered, 'next-learn-quiz', quiz.index === quiz.questions.length - 1) +
+          '</article>';
       }
     } else {
       learnBody =
@@ -1008,10 +1060,10 @@
           '<button class="btn-main" data-action="start-practice">Kör igen</button></article>';
       } else {
         const q = session.questions[session.index];
-        if (q.mode === 'sound_to_char') {
-          speak(q.char);
-        } else if (q.mode === 'word_to_meaning') {
+        if (q.mode === 'word_to_meaning') {
           speak(q.word);
+        } else if (q.mode === 'sound_to_char' || session.answered) {
+          speak(q.char);
         }
 
         sessionBody +=
@@ -1022,11 +1074,10 @@
           '<div class="action-row" style="grid-template-columns:repeat(2,minmax(0,1fr));">' +
           (q.mode === 'sound_to_char' || q.mode === 'word_to_meaning' ? '<button class="btn-soft" data-action="repeat-sound">🔊 Spela igen</button>' : '<div></div>') +
           '<div></div></div>' +
-          '<div class="options-grid">' +
-          q.options.map(function (option) {
-            return '<button class="btn-soft option-btn" data-action="answer-practice" data-value="' + option + '">' + option + '</button>';
-          }).join('') +
-          '</div><p class="feedback">' + (session.feedback || '') + '</p></article>';
+          optionButtonsHtml(q, session.answered, 'answer-practice') +
+          feedbackHtml(session.feedback, session.answered) +
+          nextButtonHtml(session.answered, 'next-practice', session.index === session.questions.length - 1) +
+          '</article>';
       }
     }
 
@@ -1086,13 +1137,11 @@
   function renderCalendar() {
     const history = new Set(state.streak.history);
     const days = [];
-    const today = new Date(todayKey() + 'T00:00:00');
+    const today = todayKey();
 
     for (let i = 27; i >= 0; i -= 1) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      const label = String(d.getDate());
+      const key = datePlusDays(today, -i);
+      const label = String(Number(key.slice(8, 10)));
       days.push('<div class="day-cell ' + (history.has(key) ? 'active' : '') + '">' + label + '</div>');
     }
 
@@ -1172,6 +1221,8 @@
       render();
     } else if (action === 'answer-learn-quiz') {
       answerLearnQuiz(value);
+    } else if (action === 'next-learn-quiz') {
+      nextLearnQuizQuestion();
     } else if (action === 'close-learn-quiz') {
       state.learn.quiz = null;
       render();
@@ -1193,6 +1244,8 @@
       render();
     } else if (action === 'answer-practice') {
       answerPractice(value);
+    } else if (action === 'next-practice') {
+      nextPracticeQuestion();
     } else if (action === 'repeat-sound') {
       const session = state.practice.session;
       if (session && !session.done) {

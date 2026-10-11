@@ -42,6 +42,13 @@
     };
   }
 
+  function getActiveStreak(streak, today) {
+    if (streak.lastDate === today || streak.lastDate === datePlusDays(today, -1)) {
+      return streak.current;
+    }
+    return 0;
+  }
+
   function applyReview(entry, correct, today) {
     const next = { ...entry };
     if (correct) {
@@ -103,6 +110,7 @@
     buildOptions: buildOptions,
     createProgressMap: createProgressMap,
     datePlusDays: datePlusDays,
+    getActiveStreak: getActiveStreak,
     getLearnedCount: getLearnedCount,
     getProgressPercent: getProgressPercent,
     isGroupUnlocked: isGroupUnlocked,

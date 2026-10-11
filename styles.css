@@ -367,6 +367,14 @@ button {
   background: #ffe9ee;
 }
 
+.option-btn:disabled {
+  cursor: default;
+}
+
+.option-btn:disabled:not(.correct):not(.wrong) {
+  opacity: 0.55;
+}
+
 .circle-row {
   display: flex;
   gap: 16px;

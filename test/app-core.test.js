@@ -110,3 +110,13 @@ test('buildOptions returns the answer plus three distractors from a larger pool'
   assert.equal(new Set(options).size, 4);
   assert.equal(options.includes('ka'), true);
 });
+
+test('getActiveStreak keeps the streak when the last practice was yesterday', () => {
+  const streak = { current: 5, best: 5, lastDate: '2026-10-10', history: [] };
+  assert.equal(core.getActiveStreak(streak, '2026-10-11'), 5);
+});
+
+test('getActiveStreak is zero when a day has been missed', () => {
+  const streak = { current: 5, best: 5, lastDate: '2026-10-09', history: [] };
+  assert.equal(core.getActiveStreak(streak, '2026-10-11'), 0);
+});
