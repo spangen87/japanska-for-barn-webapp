@@ -94,3 +94,19 @@ test('getProgressPercent uses threshold correctly', () => {
   const percent = core.getProgressPercent(progress, 4, 3);
   assert.equal(percent, 50);
 });
+
+test('buildOptions returns each distinct value once when the pool repeats values', () => {
+  const pool = ['a', 'i', 'u', 'a', 'i', 'u'].map((romaji) => ({ romaji }));
+  const options = core.buildOptions(pool, 'a', (item) => item.romaji);
+
+  assert.deepEqual(options.slice().sort(), ['a', 'i', 'u']);
+});
+
+test('buildOptions returns the answer plus three distractors from a larger pool', () => {
+  const pool = ['a', 'i', 'u', 'e', 'o', 'ka'].map((romaji) => ({ romaji }));
+  const options = core.buildOptions(pool, 'ka', (item) => item.romaji);
+
+  assert.equal(options.length, 4);
+  assert.equal(new Set(options).size, 4);
+  assert.equal(options.includes('ka'), true);
+});

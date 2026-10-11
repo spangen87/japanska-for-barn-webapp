@@ -37,19 +37,20 @@
     'さ': 'Som ett paraply i vinden: sa!',
     'ね': 'Som en sovande katt (neko).',
     'の': 'En virvel som säger no-no.',
-    'し': "Låter ungefär som 'sji' på svenska.",
-    'つ': "Låter som 'tsoo', kort och mjukt.",
+    'し': 'Ser ut som en fiskekrok som hänger i vattnet: shi!',
+    'つ': 'Ser ut som en våg. Tsunami börjar med tsu!',
     'ふ': "Mjuk 'fu', nästan lite 'hu'.",
     'シ': "Katakana 'shi', samma ljud som し.",
-    'ツ': "Katakana 'tsu', tänk kort 'tsoo'.",
+    'ツ': "Katakana 'tsu', samma ljud som つ.",
     'フ': "Katakana 'fu', mjukt och lätt."
   };
 
   const PRONUNCIATION_TIPS = {
-    shi: "Uttalas ungefär som 'sji'.",
-    tsu: "Uttalas 'tsoo', kort.",
+    shi: "Som tj-ljudet i 'tjugo' eller 'kind', ungefär som engelska 'she'.",
+    tsu: "'ts' som i 'katts', plus ett kort u.",
     fu: "Mjuk 'f', nästan som 'hu'.",
-    chi: "Låter ungefär som 'tji'."
+    chi: "Som i engelska 'chips' eller 'cheese'.",
+    wo: "Skrivs 'wo' men låter som 'o'."
   };
 
   const BADGES = [
@@ -456,9 +457,13 @@
     }
 
     const pool = getPracticePool(practice.alphabet);
-    if (pool.length < 4) {
+    const answerKey = practice.mode === 'sound_to_char' ? 'char' : 'romaji';
+    const distinctAnswers = new Set(pool.map(function (item) {
+      return item[answerKey];
+    }));
+    if (distinctAnswers.size < 4) {
       state.practice.session = null;
-      state.practice.notice = 'Öppna Lär dig och gå igenom minst 4 tecken först.';
+      state.practice.notice = 'Öppna Lär dig och gå igenom minst 4 tecken med olika ljud först.';
       return;
     }
 
@@ -633,26 +638,11 @@
   }
 
   function buildOptions(pool, answer, pickFn) {
-    const values = new Set([answer]);
-    while (values.size < 4) {
-      const candidate = pickFn(pool[Math.floor(Math.random() * pool.length)]);
-      values.add(candidate);
-      if (values.size === pool.length) {
-        break;
-      }
-    }
-    const options = Array.from(values);
-    shuffle(options);
-    return options;
+    return core.buildOptions(pool, answer, pickFn);
   }
 
   function shuffle(items) {
-    for (let i = items.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const tmp = items[i];
-      items[i] = items[j];
-      items[j] = tmp;
-    }
+    core.shuffle(items);
   }
 
   function findCharBySymbol(alphabet, symbol) {
@@ -809,8 +799,9 @@
     app.innerHTML =
       '<section class="intro-screen card">' +
       '<p class="intro-japanese" lang="ja">こんにちは</p>' +
-      '<p class="intro-romaji">Ko ni chi wa!</p>' +
+      '<p class="intro-romaji">Kon-ni-chi-wa!</p>' +
       '<p class="muted">Välkommen till japanska för barn.</p>' +
+      '<p class="muted">Psst! Här låter <span lang="ja">は</span> som "wa".</p>' +
       '<button class="btn-main" data-action="start-game">Starta</button>' +
       '</section>';
   }
@@ -1169,8 +1160,7 @@
       render();
     } else if (action === 'learn-speak') {
       if (state.learn.unit === 'words') {
-        const words = getLearnWordList(state.learn.alphabet);
-        speak(words[state.learn.cardIndex].word);
+        speak(getCurrentLearnWords()[state.learn.cardIndex].word);
       } else {
         const alphabet = ALPHABETS[state.learn.alphabet];
         const symbol = alphabet.rows[state.learn.groupIndex][state.learn.cardIndex][0];

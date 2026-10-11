@@ -79,13 +79,34 @@
     return Math.round((learned / total) * 100);
   }
 
+  function shuffle(items) {
+    for (let i = items.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = items[i];
+      items[i] = items[j];
+      items[j] = tmp;
+    }
+  }
+
+  function buildOptions(pool, answer, pickFn) {
+    const distractors = Array.from(new Set(pool.map(pickFn))).filter(function (value) {
+      return value !== answer;
+    });
+    shuffle(distractors);
+    const options = [answer].concat(distractors.slice(0, 3));
+    shuffle(options);
+    return options;
+  }
+
   const api = {
     applyReview: applyReview,
+    buildOptions: buildOptions,
     createProgressMap: createProgressMap,
     datePlusDays: datePlusDays,
     getLearnedCount: getLearnedCount,
     getProgressPercent: getProgressPercent,
     isGroupUnlocked: isGroupUnlocked,
+    shuffle: shuffle,
     updateStreak: updateStreak
   };
 
