@@ -120,3 +120,8 @@ test('getActiveStreak is zero when a day has been missed', () => {
   const streak = { current: 5, best: 5, lastDate: '2026-10-09', history: [] };
   assert.equal(core.getActiveStreak(streak, '2026-10-11'), 0);
 });
+
+test('isWordGroupUnlocked opens a word group once its lesson group is completed', () => {
+  assert.equal(core.isWordGroupUnlocked([true, false], 1), true);
+  assert.equal(core.isWordGroupUnlocked([true, false], 2), false);
+});

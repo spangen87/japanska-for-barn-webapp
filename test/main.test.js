@@ -66,6 +66,10 @@ const SEEN_FIRST_HIRAGANA_ROW = {
   seenChars: { hiragana: { あ: true, い: true, う: true, え: true, お: true } }
 };
 
+function completedUpTo(count, total) {
+  return Array.from({ length: total || 21 }, (_, i) => i < count);
+}
+
 function localDateKey(date) {
   return [
     date.getFullYear(),
@@ -104,7 +108,17 @@ test('sound button in a later word group speaks the word on the current card', (
   app.click('go-learn');
   app.click('learn-speak');
 
-  assert.equal(app.spoken.at(-1), 'あさ');
+  assert.equal(app.spoken.at(-1), curriculum.hiragana.wordGroups[2].words[0].word);
+});
+
+test('sound button in a katakana word group speaks the katakana word', () => {
+  const app = loadApp({
+    learn: { alphabet: 'katakana', unit: 'words', wordGroupIndex: 1, cardIndex: 2 }
+  });
+  app.click('go-learn');
+  app.click('learn-speak');
+
+  assert.equal(app.spoken.at(-1), curriculum.katakana.wordGroups[1].words[2].word);
 });
 
 test('mixed practice with fewer than four distinct sounds shows a notice instead of freezing', () => {
@@ -311,5 +325,92 @@ test('mixed practice options stay unique for combinations found in both alphabet
 
   app.state().practice.session.questions.forEach((question) => {
     assert.equal(new Set(question.options).size, 4);
+  });
+});
+
+test('a word group stays locked until its lesson group is completed', () => {
+  const app = loadApp();
+  app.click('go-learn');
+  app.click('pick-word-lesson', { wordGroupIndex: '0' });
+
+  assert.equal(app.state().learn.unit, 'group');
+});
+
+test('a word group opens when its lesson group is completed', () => {
+  const app = loadApp({ completedGroups: { hiragana: completedUpTo(1) } });
+  app.click('go-learn');
+  app.click('pick-word-lesson', { wordGroupIndex: '0' });
+
+  assert.equal(app.state().learn.unit, 'words');
+});
+
+test('the next lesson group opens without doing the word group', () => {
+  const app = loadApp({ completedGroups: { hiragana: completedUpTo(1) } });
+  app.click('go-learn');
+  app.click('pick-group', { groupIndex: '1' });
+
+  assert.equal(app.state().learn.groupIndex, 1);
+});
+
+test('each word group card is listed right after its lesson group', () => {
+  const app = loadApp();
+  app.click('go-learn');
+
+  const html = app.html();
+  const firstGroup = html.indexOf('data-group-index="0"');
+  const firstWords = html.indexOf('data-word-group-index="0"');
+  const secondGroup = html.indexOf('data-group-index="1"');
+  assert.ok(firstGroup < firstWords && firstWords < secondGroup);
+});
+
+test('a word card shows the word emoji', () => {
+  const word = curriculum.hiragana.wordGroups[0].words[0];
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'words', wordGroupIndex: 0, cardIndex: 0 } });
+  app.click('go-learn');
+
+  assert.ok(app.html().includes(word.emoji));
+});
+
+test('practice words only uses words from unlocked word groups', () => {
+  const unlocked = curriculum.hiragana.wordGroups
+    .filter((group) => group.afterGroup <= 2)
+    .flatMap((group) => group.words);
+  const app = loadApp({
+    completedGroups: { hiragana: completedUpTo(2) },
+    practice: { alphabet: 'hiragana', level: 'words' }
+  });
+  app.click('go-practice');
+  app.click('start-practice');
+
+  const words = unlocked.map((word) => word.word);
+  const meanings = unlocked.map((word) => word.meaning);
+  app.state().practice.session.questions.forEach((question) => {
+    assert.ok(words.includes(question.word), question.word);
+    question.options.forEach((option) => assert.ok(meanings.includes(option), option));
+  });
+});
+
+test('practice words shows a notice when no words are unlocked', () => {
+  const app = loadApp({ practice: { alphabet: 'hiragana', level: 'words' } });
+  app.click('go-practice');
+  app.click('start-practice');
+
+  assert.equal(app.state().practice.session, null);
+  assert.match(app.state().practice.notice, /Klara fler grupper/);
+});
+
+test('mixed practice words includes unlocked katakana words', () => {
+  const katakanaWords = curriculum.katakana.wordGroups
+    .filter((group) => group.afterGroup <= 5)
+    .flatMap((group) => group.words.map((word) => word.word));
+  const app = loadApp({
+    completedGroups: { katakana: completedUpTo(5, 22) },
+    practice: { alphabet: 'mixed', level: 'words' }
+  });
+  app.click('go-practice');
+  app.click('start-practice');
+
+  app.state().practice.session.questions.forEach((question) => {
+    assert.ok(katakanaWords.includes(question.word), question.word);
   });
 });

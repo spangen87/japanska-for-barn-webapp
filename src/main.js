@@ -3,7 +3,6 @@
   const curriculum = window.JapaneseCurriculum;
   const STORAGE_KEY = 'japanskaBarnApp.v2';
   const SESSION_QUESTION_COUNT = 10;
-  const WORD_GROUP_SIZE = 5;
   let pendingLearnFocus = false;
 
   const MNEMONIC_OVERRIDES = {
@@ -34,128 +33,6 @@
     { id: 'fast_lightning', icon: '⚡', name: 'Snabb som blixten', rule: '10 rätt i rad i en session.' },
     { id: 'perfect_session', icon: '🎯', name: 'Perfekt session', rule: '100% rätt i en övningssession.' }
   ];
-  const SIMPLE_WORDS = [
-    { word: 'ねこ', romaji: 'neko', meaning: 'katt' },
-    { word: 'いぬ', romaji: 'inu', meaning: 'hund' },
-    { word: 'みず', romaji: 'mizu', meaning: 'vatten' },
-    { word: 'やま', romaji: 'yama', meaning: 'berg' },
-    { word: 'そら', romaji: 'sora', meaning: 'himmel' },
-
-    { word: 'はな', romaji: 'hana', meaning: 'blomma' },
-    { word: 'き', romaji: 'ki', meaning: 'träd' },
-    { word: 'うみ', romaji: 'umi', meaning: 'hav' },
-    { word: 'かわ', romaji: 'kawa', meaning: 'flod' },
-    { word: 'ゆき', romaji: 'yuki', meaning: 'snö' },
-
-    { word: 'あさ', romaji: 'asa', meaning: 'morgon' },
-    { word: 'ひる', romaji: 'hiru', meaning: 'mitt på dagen' },
-    { word: 'よる', romaji: 'yoru', meaning: 'natt' },
-    { word: 'あめ', romaji: 'ame', meaning: 'regn' },
-    { word: 'かぜ', romaji: 'kaze', meaning: 'vind' },
-
-    { word: 'ごはん', romaji: 'gohan', meaning: 'mat' },
-    { word: 'おちゃ', romaji: 'ocha', meaning: 'te' },
-    { word: 'りんご', romaji: 'ringo', meaning: 'äpple' },
-    { word: 'たまご', romaji: 'tamago', meaning: 'ägg' },
-    { word: 'さかな', romaji: 'sakana', meaning: 'fisk' },
-
-    { word: 'ともだち', romaji: 'tomodachi', meaning: 'kompis' },
-    { word: 'せんせい', romaji: 'sensei', meaning: 'lärare' },
-    { word: 'がくせい', romaji: 'gakusei', meaning: 'elev' },
-    { word: 'かぞく', romaji: 'kazoku', meaning: 'familj' },
-    { word: 'こども', romaji: 'kodomo', meaning: 'barn' },
-
-    { word: 'くるま', romaji: 'kuruma', meaning: 'bil' },
-    { word: 'でんしゃ', romaji: 'densha', meaning: 'tåg' },
-    { word: 'じてんしゃ', romaji: 'jitensha', meaning: 'cykel' },
-    { word: 'えき', romaji: 'eki', meaning: 'station' },
-    { word: 'みち', romaji: 'michi', meaning: 'väg' },
-
-    { word: 'いえ', romaji: 'ie', meaning: 'hus' },
-    { word: 'へや', romaji: 'heya', meaning: 'rum' },
-    { word: 'まど', romaji: 'mado', meaning: 'fönster' },
-    { word: 'つくえ', romaji: 'tsukue', meaning: 'skrivbord' },
-    { word: 'いす', romaji: 'isu', meaning: 'stol' },
-
-    { word: 'とけい', romaji: 'tokei', meaning: 'klocka' },
-    { word: 'えんぴつ', romaji: 'enpitsu', meaning: 'penna' },
-    { word: 'ほん', romaji: 'hon', meaning: 'bok' },
-    { word: 'てがみ', romaji: 'tegami', meaning: 'brev' },
-    { word: 'しんぶん', romaji: 'shinbun', meaning: 'tidning' },
-
-    { word: 'たんじょうび', romaji: 'tanjoubi', meaning: 'födelsedag' },
-    { word: 'しゅくだい', romaji: 'shukudai', meaning: 'läxa' },
-    { word: 'べんきょう', romaji: 'benkyou', meaning: 'studier' },
-    { word: 'びょういん', romaji: 'byouin', meaning: 'sjukhus' },
-    { word: 'としょかん', romaji: 'toshokan', meaning: 'bibliotek' },
-
-    { word: 'じしょ', romaji: 'jisho', meaning: 'ordbok' },
-    { word: 'せいかつ', romaji: 'seikatsu', meaning: 'vardag' },
-    { word: 'ぶんか', romaji: 'bunka', meaning: 'kultur' },
-    { word: 'けいけん', romaji: 'keiken', meaning: 'erfarenhet' },
-    { word: 'しょうらい', romaji: 'shourai', meaning: 'framtid' }
-  ];
-  const SIMPLE_WORDS_KATAKANA = [
-    { word: 'バス', romaji: 'basu', meaning: 'buss' },
-    { word: 'パン', romaji: 'pan', meaning: 'bröd' },
-    { word: 'テレビ', romaji: 'terebi', meaning: 'tv' },
-    { word: 'ジュース', romaji: 'juusu', meaning: 'juice' },
-    { word: 'ケーキ', romaji: 'keeki', meaning: 'tårta' },
-
-    { word: 'アイス', romaji: 'aisu', meaning: 'glass' },
-    { word: 'コーヒー', romaji: 'koohii', meaning: 'kaffe' },
-    { word: 'サラダ', romaji: 'sarada', meaning: 'sallad' },
-    { word: 'ピザ', romaji: 'piza', meaning: 'pizza' },
-    { word: 'チーズ', romaji: 'chiizu', meaning: 'ost' },
-
-    { word: 'カメラ', romaji: 'kamera', meaning: 'kamera' },
-    { word: 'タクシー', romaji: 'takushii', meaning: 'taxi' },
-    { word: 'ホテル', romaji: 'hoteru', meaning: 'hotell' },
-    { word: 'ピアノ', romaji: 'piano', meaning: 'piano' },
-    { word: 'ギター', romaji: 'gitaa', meaning: 'gitarr' },
-
-    { word: 'スマホ', romaji: 'sumaho', meaning: 'smartphone' },
-    { word: 'パソコン', romaji: 'pasokon', meaning: 'dator' },
-    { word: 'ゲーム', romaji: 'geemu', meaning: 'spel' },
-    { word: 'アプリ', romaji: 'apuri', meaning: 'app' },
-    { word: 'インターネット', romaji: 'intaanetto', meaning: 'internet' },
-
-    { word: 'シャツ', romaji: 'shatsu', meaning: 'skjorta' },
-    { word: 'スカート', romaji: 'sukaato', meaning: 'kjol' },
-    { word: 'ジャケット', romaji: 'jaketto', meaning: 'jacka' },
-    { word: 'スニーカー', romaji: 'suniikaa', meaning: 'sneakers' },
-    { word: 'リュック', romaji: 'ryukku', meaning: 'ryggsäck' },
-
-    { word: 'レストラン', romaji: 'resutoran', meaning: 'restaurang' },
-    { word: 'スーパー', romaji: 'suupaa', meaning: 'stormarknad' },
-    { word: 'コンビニ', romaji: 'konbini', meaning: 'närbutik' },
-    { word: 'エレベーター', romaji: 'erebeetaa', meaning: 'hiss' },
-    { word: 'エスカレーター', romaji: 'esukareetaa', meaning: 'rulltrappa' },
-
-    { word: 'スポーツ', romaji: 'supootsu', meaning: 'sport' },
-    { word: 'サッカー', romaji: 'sakkaa', meaning: 'fotboll' },
-    { word: 'テニス', romaji: 'tenisu', meaning: 'tennis' },
-    { word: 'プール', romaji: 'puuru', meaning: 'pool' },
-    { word: 'トレーニング', romaji: 'toreeningu', meaning: 'träning' },
-
-    { word: 'プロジェクト', romaji: 'purojekuto', meaning: 'projekt' },
-    { word: 'スケジュール', romaji: 'sukejuuru', meaning: 'schema' },
-    { word: 'プレゼン', romaji: 'purezen', meaning: 'presentation' },
-    { word: 'アイデア', romaji: 'aidea', meaning: 'idé' },
-    { word: 'コミュニケーション', romaji: 'komyunikeeshon', meaning: 'kommunikation' },
-
-    { word: 'システム', romaji: 'shisutemu', meaning: 'system' },
-    { word: 'データ', romaji: 'deeta', meaning: 'data' },
-    { word: 'アルゴリズム', romaji: 'arugorizumu', meaning: 'algoritm' },
-    { word: 'パフォーマンス', romaji: 'pafoomansu', meaning: 'prestanda' },
-    { word: 'プラットフォーム', romaji: 'purattofoomu', meaning: 'plattform' },
-
-    { word: 'イノベーション', romaji: 'inobeeshon', meaning: 'innovation' },
-    { word: 'マネジメント', romaji: 'manejimento', meaning: 'ledning' },
-    { word: 'ストラテジー', romaji: 'sutoratejii', meaning: 'strategi' },
-    { word: 'グローバル', romaji: 'guroobaru', meaning: 'global' },
-    { word: 'サステナビリティ', romaji: 'sasutenabiriti', meaning: 'hållbarhet' }
-  ];
 
   const ALPHABETS = {
     hiragana: buildAlphabet(curriculum.hiragana),
@@ -177,7 +54,7 @@
       });
     });
 
-    return { name: data.name, groups: groups, chars: groups.flat() };
+    return { name: data.name, groups: groups, chars: groups.flat(), wordGroups: data.wordGroups };
   }
 
   function createProgressMap(chars) {
@@ -224,8 +101,8 @@
         katakana: new Array(ALPHABETS.katakana.groups.length).fill(false)
       },
       completedWordLessons: {
-        hiragana: new Array(Math.ceil(SIMPLE_WORDS.length / WORD_GROUP_SIZE)).fill(false),
-        katakana: new Array(Math.ceil(SIMPLE_WORDS_KATAKANA.length / WORD_GROUP_SIZE)).fill(false)
+        hiragana: new Array(ALPHABETS.hiragana.wordGroups.length).fill(false),
+        katakana: new Array(ALPHABETS.katakana.wordGroups.length).fill(false)
       },
       streak: {
         current: 0,
@@ -418,7 +295,16 @@
   function startPracticeSession() {
     const practice = state.practice;
     if (practice.level === 'words') {
-      const questions = buildWordQuestions(SESSION_QUESTION_COUNT);
+      const wordPool = getUnlockedWords(practice.alphabet);
+      const distinctMeanings = new Set(wordPool.map(function (item) {
+        return item.meaning;
+      }));
+      if (distinctMeanings.size < 4) {
+        state.practice.session = null;
+        state.practice.notice = 'Klara fler grupper i Lär dig för att låsa upp ord.';
+        return;
+      }
+      const questions = buildWordQuestions(wordPool, SESSION_QUESTION_COUNT);
       state.practice.session = {
         index: 0,
         correct: 0,
@@ -465,8 +351,8 @@
     state.practice.notice = '';
   }
 
-  function buildWordQuestions(count) {
-    const source = SIMPLE_WORDS.slice();
+  function buildWordQuestions(pool, count) {
+    const source = pool.slice();
     shuffle(source);
     const picked = [];
     for (let i = 0; i < count; i += 1) {
@@ -474,12 +360,12 @@
     }
 
     return picked.map(function (wordObj) {
-      return createWordQuestion(wordObj);
+      return createWordQuestion(wordObj, pool);
     });
   }
 
-  function createWordQuestion(wordObj) {
-    const options = buildOptions(SIMPLE_WORDS, wordObj.meaning, function (item) {
+  function createWordQuestion(wordObj, pool) {
+    const options = buildOptions(pool, wordObj.meaning, function (item) {
       return item.meaning;
     });
     return {
@@ -509,38 +395,27 @@
     });
   }
 
-  function getLearnWordList(alphabetId) {
-    return alphabetId === 'katakana' ? SIMPLE_WORDS_KATAKANA : SIMPLE_WORDS;
-  }
-
-  function getLearnWordGroups(alphabetId) {
-    const words = getLearnWordList(alphabetId);
-    const groups = [];
-    for (let i = 0; i < words.length; i += WORD_GROUP_SIZE) {
-      groups.push(words.slice(i, i + WORD_GROUP_SIZE));
-    }
-    return groups;
-  }
-
   function getCurrentLearnWords() {
-    const groups = getLearnWordGroups(state.learn.alphabet);
-    return groups[state.learn.wordGroupIndex] || groups[0] || [];
-  }
-
-  function isWordLessonUnlocked(alphabetId) {
-    return state.completedGroups[alphabetId].every(function (done) {
-      return done;
-    });
+    const groups = ALPHABETS[state.learn.alphabet].wordGroups;
+    return (groups[state.learn.wordGroupIndex] || groups[0]).words;
   }
 
   function isWordGroupUnlocked(alphabetId, wordGroupIndex) {
-    if (!isWordLessonUnlocked(alphabetId)) {
-      return false;
-    }
-    if (wordGroupIndex === 0) {
-      return true;
-    }
-    return Boolean(state.completedWordLessons[alphabetId][wordGroupIndex - 1]);
+    const group = ALPHABETS[alphabetId].wordGroups[wordGroupIndex];
+    return Boolean(group) && core.isWordGroupUnlocked(state.completedGroups[alphabetId], group.afterGroup);
+  }
+
+  function getUnlockedWords(alphabetChoice) {
+    const alphabetIds = alphabetChoice === 'mixed' ? ['hiragana', 'katakana'] : [alphabetChoice];
+    return alphabetIds.flatMap(function (alphabetId) {
+      return ALPHABETS[alphabetId].wordGroups
+        .filter(function (group, index) {
+          return isWordGroupUnlocked(alphabetId, index);
+        })
+        .flatMap(function (group) {
+          return group.words;
+        });
+    });
   }
 
   function pickPracticeChars(pool, count, alphabetChoice) {
@@ -856,8 +731,7 @@
     const alphabet = ALPHABETS[learn.alphabet];
     const isWordUnit = learn.unit === 'words';
     const group = isWordUnit ? null : alphabet.groups[learn.groupIndex];
-    const wordGroups = getLearnWordGroups(learn.alphabet);
-    const wordList = wordGroups[learn.wordGroupIndex] || wordGroups[0] || [];
+    const wordList = getCurrentLearnWords();
     const current = isWordUnit
       ? wordList[learn.cardIndex]
       : group[learn.cardIndex];
@@ -880,28 +754,35 @@
         const sample = items.map(function (item) {
           return item.char;
         }).join(' ');
+        const wordCards = alphabet.wordGroups
+          .map(function (wordGroup, wordIndex) {
+            return wordGroup.afterGroup === index + 1 ? wordGroupCardHtml(wordGroup, wordIndex) : '';
+          })
+          .join('');
         return (
           '<div class="group-card ' + (unlocked ? '' : 'locked') + '">' +
           '<h4>Grupp ' + (index + 1) + ' ' + (done ? '✅' : unlocked ? '' : '🔒') + '</h4>' +
           '<p class="muted" style="font-family:var(--jp-font)">' + sample + '</p>' +
           '<button class="btn-soft" data-action="pick-group" data-group-index="' + index + '" ' + (unlocked ? '' : 'disabled') + '>Välj</button>' +
-          '</div>'
+          '</div>' +
+          wordCards
         );
       })
       .join('');
-    const wordsCard = wordGroups.map(function (words, index) {
-      const unlocked = isWordGroupUnlocked(learn.alphabet, index);
-      const done = state.completedWordLessons[learn.alphabet][index];
+
+    function wordGroupCardHtml(wordGroup, wordIndex) {
+      const unlocked = isWordGroupUnlocked(learn.alphabet, wordIndex);
+      const done = state.completedWordLessons[learn.alphabet][wordIndex];
       return (
-        '<div class="group-card ' + (unlocked ? '' : 'locked') + '">' +
-        '<h4>Ordgrupp ' + (index + 1) + ' ' + (done ? '✅' : unlocked ? '' : '🔒') + '</h4>' +
-        '<p class="muted" style="font-family:var(--jp-font)">' + words.map(function (item) {
+        '<div class="group-card word-group-card ' + (unlocked ? '' : 'locked') + '">' +
+        '<h4>⭐ Nya ord ' + (done ? '✅' : unlocked ? '' : '🔒') + '</h4>' +
+        '<p class="muted" style="font-family:var(--jp-font)">' + wordGroup.words.map(function (item) {
           return item.word;
         }).join(' ') + '</p>' +
-        '<button class="btn-soft" data-action="pick-word-lesson" data-word-group-index="' + index + '" ' + (unlocked ? '' : 'disabled') + '>Välj</button>' +
+        '<button class="btn-soft" data-action="pick-word-lesson" data-word-group-index="' + wordIndex + '" ' + (unlocked ? '' : 'disabled') + '>Välj</button>' +
         '</div>'
       );
-    }).join('');
+    }
 
     let learnBody = '';
     if (learn.quiz) {
@@ -943,7 +824,8 @@
     } else {
       learnBody =
         '<article class="card learn-focus-card" id="learn-focus">' +
-        '<h3>' + (isWordUnit ? alphabet.name + ' Ordgrupp ' + (learn.wordGroupIndex + 1) : alphabet.name + ' Grupp ' + (learn.groupIndex + 1)) + '</h3>' +
+        '<h3>' + (isWordUnit ? alphabet.name + ' – nya ord efter grupp ' + (alphabet.wordGroups[learn.wordGroupIndex] || alphabet.wordGroups[0]).afterGroup : alphabet.name + ' Grupp ' + (learn.groupIndex + 1)) + '</h3>' +
+        (isWordUnit ? '<p class="word-emoji" aria-hidden="true">' + current.emoji + '</p>' : '') +
         '<p class="big-char">' + (isWordUnit ? current.word : current.char) + '</p>' +
         '<p class="romaji">' + (isWordUnit ? current.romaji + ' - ' + current.meaning : current.romaji) + '</p>' +
         (isWordUnit
@@ -967,7 +849,7 @@
       '<button class="btn-soft" data-action="toggle-groups">' + (learn.groupsCollapsed ? 'Visa grupper' : 'Minimera grupper') + '</button>' +
       '<button class="btn-soft" data-action="go-home">Hem</button>' +
       '</div></article>' +
-      (learn.groupsCollapsed ? '' : '<article class="card group-grid">' + groupCards + wordsCard + '</article>') +
+      (learn.groupsCollapsed ? '' : '<article class="card group-grid">' + groupCards + '</article>') +
       learnBody +
       '</section>';
   }
@@ -1000,7 +882,7 @@
       '<button class="btn-soft toggle-btn ' + (practice.level === 'words' ? 'active' : '') + '" data-action="set-practice-level" data-value="words">Enkla ord</button>' +
       '</div>' +
       (isWordLevel
-        ? '<p class="muted" style="margin-top:8px;">Öva vanliga nybörjarord med japanska ord till svenska betydelser.</p>'
+        ? '<p class="muted" style="margin-top:8px;">Öva orden du har låst upp i Lär dig.</p>'
         : '') +
       (isWordLevel
         ? ''
@@ -1009,14 +891,11 @@
       '<button class="btn-soft toggle-btn ' + (practice.mode === 'char_to_romaji' ? 'active' : '') + '" data-action="set-practice-mode" data-value="char_to_romaji">Tecken → Ljud</button>' +
       '<button class="btn-soft toggle-btn ' + (practice.mode === 'sound_to_char' ? 'active' : '') + '" data-action="set-practice-mode" data-value="sound_to_char">Ljud → Tecken</button>' +
       '</div>') +
-      (isWordLevel
-        ? ''
-        :
       '<div class="alphabet-toggle" style="margin-top:8px;">' +
       '<button class="btn-soft toggle-btn ' + (practice.alphabet === 'hiragana' ? 'active' : '') + '" data-action="set-practice-alphabet" data-value="hiragana">Hiragana</button>' +
       '<button class="btn-soft toggle-btn ' + (practice.alphabet === 'katakana' ? 'active' : '') + '" data-action="set-practice-alphabet" data-value="katakana">Katakana</button>' +
       '<button class="btn-soft toggle-btn ' + (practice.alphabet === 'mixed' ? 'active' : '') + '" data-action="set-practice-alphabet" data-value="mixed">Blandat</button>' +
-      '</div>') +
+      '</div>' +
       (practice.notice ? '<p class="feedback bad">' + practice.notice + '</p>' : '') +
       '<div style="margin-top:10px;"><button class="btn-main" data-action="start-practice">Starta session</button></div></article>';
 

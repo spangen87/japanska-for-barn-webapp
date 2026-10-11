@@ -71,6 +71,10 @@
     return Boolean(completedGroups[groupIndex - 1]);
   }
 
+  function isWordGroupUnlocked(completedGroups, afterGroup) {
+    return Boolean(completedGroups[afterGroup - 1]);
+  }
+
   function getLearnedCount(progressMap, threshold) {
     const levelThreshold = Number.isInteger(threshold) ? threshold : 3;
     return Object.keys(progressMap).filter(function (char) {
@@ -114,6 +118,7 @@
     getLearnedCount: getLearnedCount,
     getProgressPercent: getProgressPercent,
     isGroupUnlocked: isGroupUnlocked,
+    isWordGroupUnlocked: isWordGroupUnlocked,
     shuffle: shuffle,
     updateStreak: updateStreak
   };

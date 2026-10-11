@@ -236,6 +236,18 @@ button {
   margin: 0 0 8px;
 }
 
+.word-group-card {
+  background: #fff8e8;
+  border-color: #ffd98d;
+}
+
+.word-emoji {
+  font-size: clamp(2.4rem, 9vw, 3.4rem);
+  text-align: center;
+  margin: 4px 0 0;
+  line-height: 1;
+}
+
 .big-char {
   font-family: var(--jp-font);
   font-size: clamp(4rem, 14vw, 6rem);
