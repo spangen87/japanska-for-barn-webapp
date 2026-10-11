@@ -127,6 +127,14 @@ test('loanword sound tips show how the small kana combines', () => {
     });
   });
 
+  test(alphabetId + ': no word meaning reads like another word\'s romaji', () => {
+    const words = allWords(alphabet);
+    const clashes = words
+      .filter((word) => words.some((other) => other !== word && other.romaji === word.meaning))
+      .map((word) => word.word + ' "' + word.meaning + '"');
+    assert.deepEqual(clashes, []);
+  });
+
   test(alphabetId + ': every word group has 4 to 6 words and follows an existing group', () => {
     alphabet.wordGroups.forEach((group) => {
       assert.ok(group.words.length >= 4 && group.words.length <= 6, 'storlek ' + group.words.length);

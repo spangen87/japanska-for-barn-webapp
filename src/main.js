@@ -321,11 +321,8 @@
     }
 
     const pool = getPracticePool(practice.alphabet);
-    const answerKey = practice.mode === 'sound_to_char' ? 'char' : 'romaji';
-    const distinctAnswers = new Set(pool.map(function (item) {
-      return item[answerKey];
-    }));
-    if (distinctAnswers.size < 4) {
+    const distinctSounds = new Set(pool.map(soundOf));
+    if (distinctSounds.size < 4) {
       state.practice.session = null;
       state.practice.notice = 'Öppna Lär dig och gå igenom minst 4 tecken med olika ljud först.';
       return;
@@ -464,7 +461,7 @@
     const pool = getPracticePool(alphabetChoice);
 
     if (mode === 'sound_to_char') {
-      const options = buildOptions(pool, charObj.char, function (item) {
+      const options = buildOptions(oneCharPerSound(pool, charObj), charObj.char, function (item) {
         return item.char;
       });
       return {
@@ -488,6 +485,26 @@
       options: options,
       mode: mode
     };
+  }
+
+  // を is written "wo" but pronounced "o", so it counts as the same sound as お.
+  function soundOf(item) {
+    return item.romaji === 'wo' ? 'o' : item.romaji;
+  }
+
+  // Keeps the answer plus one random character per other sound, so no two options sound alike.
+  function oneCharPerSound(pool, answerItem) {
+    const shuffled = pool.slice();
+    shuffle(shuffled);
+    const usedSounds = new Set([soundOf(answerItem)]);
+    return [answerItem].concat(shuffled.filter(function (item) {
+      const sound = soundOf(item);
+      if (usedSounds.has(sound)) {
+        return false;
+      }
+      usedSounds.add(sound);
+      return true;
+    }));
   }
 
   function buildOptions(pool, answer, pickFn) {

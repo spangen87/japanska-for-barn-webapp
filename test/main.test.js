@@ -414,3 +414,44 @@ test('mixed practice words includes unlocked katakana words', () => {
     assert.ok(katakanaWords.includes(question.word), question.word);
   });
 });
+
+// を is written "wo" but speech says "o", so it sounds like お.
+const SOUND_OF = {};
+['hiragana', 'katakana'].forEach((alphabetId) => {
+  curriculum[alphabetId].groups.forEach((group) => {
+    group.items.forEach((item) => {
+      SOUND_OF[item.char] = item.romaji === 'wo' ? 'o' : item.romaji;
+    });
+  });
+});
+
+test('listening practice needs four different sounds, not just four characters', () => {
+  const app = loadApp({
+    practice: { alphabet: 'mixed', level: 'chars', mode: 'sound_to_char' },
+    seenChars: {
+      hiragana: { あ: true, い: true, う: true },
+      katakana: { ア: true, イ: true, ウ: true }
+    }
+  });
+  app.click('go-practice');
+  app.click('start-practice');
+
+  assert.equal(app.state().practice.session, null);
+});
+
+test('listening practice never offers two characters that sound the same', () => {
+  const app = loadApp({
+    practice: { alphabet: 'mixed', level: 'chars', mode: 'sound_to_char' },
+    seenChars: {
+      hiragana: { あ: true, い: true, う: true, え: true, お: true, を: true },
+      katakana: { ア: true, イ: true, ウ: true, エ: true }
+    }
+  });
+  app.click('go-practice');
+  app.click('start-practice');
+
+  app.state().practice.session.questions.forEach((question) => {
+    const sounds = question.options.map((option) => SOUND_OF[option]);
+    assert.equal(new Set(sounds).size, sounds.length, question.options.join(' '));
+  });
+});

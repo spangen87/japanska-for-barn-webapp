@@ -187,7 +187,7 @@ Totalt blir det 108 lektionsposter i hiragana och 115 i katakana.
 |  | しゅくだい | shukudai | läxa | 📝 |
 |  | としょかん | toshokan | bibliotek | 📚 |
 |  | じしょ | jisho | ordbok | 📕 |
-| **18** | おちゃ | ocha | te | 🍵 |
+| **18** | おちゃ | ocha | grönt te | 🍵 |
 |  | おもちゃ | omocha | leksak | 🧸 |
 |  | ちょうちょ | choucho | fjäril | 🦋 |
 |  | ちゃいろ | chairo | brun | 🟤 |

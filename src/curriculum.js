@@ -217,7 +217,7 @@
       ['じしょ', 'jisho', 'ordbok', '📕']
     ]),
     words(18, [
-      ['おちゃ', 'ocha', 'te', '🍵'],
+      ['おちゃ', 'ocha', 'grönt te', '🍵'],
       ['おもちゃ', 'omocha', 'leksak', '🧸'],
       ['ちょうちょ', 'choucho', 'fjäril', '🦋'],
       ['ちゃいろ', 'chairo', 'brun', '🟤']
