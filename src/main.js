@@ -1,35 +1,10 @@
 (function () {
   const core = window.JapaneseAppCore;
-  const STORAGE_KEY = 'japanskaBarnApp.v1';
+  const curriculum = window.JapaneseCurriculum;
+  const STORAGE_KEY = 'japanskaBarnApp.v2';
   const SESSION_QUESTION_COUNT = 10;
   const WORD_GROUP_SIZE = 5;
   let pendingLearnFocus = false;
-
-  const HIRAGANA_ROWS = [
-    [['あ', 'a'], ['い', 'i'], ['う', 'u'], ['え', 'e'], ['お', 'o']],
-    [['か', 'ka'], ['き', 'ki'], ['く', 'ku'], ['け', 'ke'], ['こ', 'ko']],
-    [['さ', 'sa'], ['し', 'shi'], ['す', 'su'], ['せ', 'se'], ['そ', 'so']],
-    [['た', 'ta'], ['ち', 'chi'], ['つ', 'tsu'], ['て', 'te'], ['と', 'to']],
-    [['な', 'na'], ['に', 'ni'], ['ぬ', 'nu'], ['ね', 'ne'], ['の', 'no']],
-    [['は', 'ha'], ['ひ', 'hi'], ['ふ', 'fu'], ['へ', 'he'], ['ほ', 'ho']],
-    [['ま', 'ma'], ['み', 'mi'], ['む', 'mu'], ['め', 'me'], ['も', 'mo']],
-    [['や', 'ya'], ['ゆ', 'yu'], ['よ', 'yo']],
-    [['ら', 'ra'], ['り', 'ri'], ['る', 'ru'], ['れ', 're'], ['ろ', 'ro']],
-    [['わ', 'wa'], ['を', 'wo'], ['ん', 'n']]
-  ];
-
-  const KATAKANA_ROWS = [
-    [['ア', 'a'], ['イ', 'i'], ['ウ', 'u'], ['エ', 'e'], ['オ', 'o']],
-    [['カ', 'ka'], ['キ', 'ki'], ['ク', 'ku'], ['ケ', 'ke'], ['コ', 'ko']],
-    [['サ', 'sa'], ['シ', 'shi'], ['ス', 'su'], ['セ', 'se'], ['ソ', 'so']],
-    [['タ', 'ta'], ['チ', 'chi'], ['ツ', 'tsu'], ['テ', 'te'], ['ト', 'to']],
-    [['ナ', 'na'], ['ニ', 'ni'], ['ヌ', 'nu'], ['ネ', 'ne'], ['ノ', 'no']],
-    [['ハ', 'ha'], ['ヒ', 'hi'], ['フ', 'fu'], ['ヘ', 'he'], ['ホ', 'ho']],
-    [['マ', 'ma'], ['ミ', 'mi'], ['ム', 'mu'], ['メ', 'me'], ['モ', 'mo']],
-    [['ヤ', 'ya'], ['ユ', 'yu'], ['ヨ', 'yo']],
-    [['ラ', 'ra'], ['リ', 'ri'], ['ル', 'ru'], ['レ', 're'], ['ロ', 'ro']],
-    [['ワ', 'wa'], ['ヲ', 'wo'], ['ン', 'n']]
-  ];
 
   const MNEMONIC_OVERRIDES = {
     'あ': "Ser ut som ett A med snirkel, tänk 'aah!'.",
@@ -183,26 +158,26 @@
   ];
 
   const ALPHABETS = {
-    hiragana: buildAlphabet('Hiragana', HIRAGANA_ROWS),
-    katakana: buildAlphabet('Katakana', KATAKANA_ROWS)
+    hiragana: buildAlphabet(curriculum.hiragana),
+    katakana: buildAlphabet(curriculum.katakana)
   };
 
   const app = document.getElementById('app');
   let state = loadState();
 
-  function buildAlphabet(name, rows) {
-    const chars = rows.flat().map(function (entry) {
-      const character = entry[0];
-      const romaji = entry[1];
-      return {
-        char: character,
-        romaji: romaji,
-        mnemonic: MNEMONIC_OVERRIDES[character] || (character + ' (' + romaji + ') - koppla tecknet till ljudet ' + romaji + '.'),
-        tip: PRONUNCIATION_TIPS[romaji] || ''
-      };
+  function buildAlphabet(data) {
+    const groups = data.groups.map(function (group) {
+      return group.items.map(function (item) {
+        return {
+          char: item.char,
+          romaji: item.romaji,
+          mnemonic: MNEMONIC_OVERRIDES[item.char] || item.tip || (item.char + ' (' + item.romaji + ') - koppla tecknet till ljudet ' + item.romaji + '.'),
+          tip: PRONUNCIATION_TIPS[item.romaji] || ''
+        };
+      });
     });
 
-    return { name: name, rows: rows, chars: chars };
+    return { name: data.name, groups: groups, chars: groups.flat() };
   }
 
   function createProgressMap(chars) {
@@ -245,8 +220,8 @@
         katakana: createSeenMap(ALPHABETS.katakana.chars)
       },
       completedGroups: {
-        hiragana: new Array(ALPHABETS.hiragana.rows.length).fill(false),
-        katakana: new Array(ALPHABETS.katakana.rows.length).fill(false)
+        hiragana: new Array(ALPHABETS.hiragana.groups.length).fill(false),
+        katakana: new Array(ALPHABETS.katakana.groups.length).fill(false)
       },
       completedWordLessons: {
         hiragana: new Array(Math.ceil(SIMPLE_WORDS.length / WORD_GROUP_SIZE)).fill(false),
@@ -408,12 +383,14 @@
       });
     } else {
       const alphabet = getAlphabetData(learn.alphabet);
-      const groupChars = alphabet.rows[learn.groupIndex].map(function (entry) {
-        return findCharBySymbol(alphabet, entry[0]);
-      });
+      const groupChars = alphabet.groups[learn.groupIndex];
+      // Same-group distractors train the differences that matter; small groups borrow from earlier groups.
+      const optionPool = groupChars.length >= 4
+        ? groupChars
+        : alphabet.groups.slice(0, learn.groupIndex + 1).flat();
 
       questions = groupChars.map(function (charObj) {
-        const options = buildOptions(alphabet.chars, charObj.romaji, function (item) {
+        const options = buildOptions(optionPool, charObj.romaji, function (item) {
           return item.romaji;
         });
 
@@ -646,12 +623,6 @@
     core.shuffle(items);
   }
 
-  function findCharBySymbol(alphabet, symbol) {
-    return alphabet.chars.find(function (item) {
-      return item.char === symbol;
-    });
-  }
-
   function answerLearnQuiz(value) {
     const quiz = state.learn.quiz;
     if (!quiz || quiz.done || quiz.answered) {
@@ -787,7 +758,7 @@
     const learn = state.learn;
     const maxIndex = learn.unit === 'words'
       ? getCurrentLearnWords().length - 1
-      : ALPHABETS[learn.alphabet].rows[learn.groupIndex].length - 1;
+      : ALPHABETS[learn.alphabet].groups[learn.groupIndex].length - 1;
     learn.cardIndex = Math.min(maxIndex, Math.max(0, learn.cardIndex + step));
   }
 
@@ -884,12 +855,12 @@
     const learn = state.learn;
     const alphabet = ALPHABETS[learn.alphabet];
     const isWordUnit = learn.unit === 'words';
-    const group = isWordUnit ? null : alphabet.rows[learn.groupIndex];
+    const group = isWordUnit ? null : alphabet.groups[learn.groupIndex];
     const wordGroups = getLearnWordGroups(learn.alphabet);
     const wordList = wordGroups[learn.wordGroupIndex] || wordGroups[0] || [];
     const current = isWordUnit
       ? wordList[learn.cardIndex]
-      : findCharBySymbol(alphabet, group[learn.cardIndex][0]);
+      : group[learn.cardIndex];
 
     if (!isWordUnit && !learn.quiz) {
       if (!state.seenChars[learn.alphabet][current.char]) {
@@ -902,12 +873,12 @@
       speak(isWordUnit ? current.word : current.char);
     }
 
-    const groupCards = alphabet.rows
-      .map(function (row, index) {
+    const groupCards = alphabet.groups
+      .map(function (items, index) {
         const unlocked = isGroupUnlocked(learn.alphabet, index);
         const done = state.completedGroups[learn.alphabet][index];
-        const sample = row.map(function (entry) {
-          return entry[0];
+        const sample = items.map(function (item) {
+          return item.char;
         }).join(' ');
         return (
           '<div class="group-card ' + (unlocked ? '' : 'locked') + '">' +
@@ -1107,13 +1078,16 @@
       return '<div class="badge-item ' + (unlocked ? 'unlocked' : '') + '"><strong>' + badge.icon + ' ' + badge.name + '</strong><div class="muted">' + badge.rule + '</div></div>';
     }).join('');
 
+    const hiraTotal = ALPHABETS.hiragana.chars.length;
+    const kataTotal = ALPHABETS.katakana.chars.length;
+
     app.innerHTML =
       topBarHtml() +
       '<section class="progress-layout">' +
       '<article class="card"><button class="btn-soft" data-action="go-home">Hem</button></article>' +
       '<article class="card"><h3>Framsteg</h3>' + circles +
-      '<p class="muted">Upptäckta: Hiragana ' + getSeenCount('hiragana') + '/46, Katakana ' + getSeenCount('katakana') + '/46</p>' +
-      '<p class="muted">Mästarnivå (L3+): Hiragana ' + getLearnedCount('hiragana') + '/46, Katakana ' + getLearnedCount('katakana') + '/46</p>' +
+      '<p class="muted">Upptäckta: Hiragana ' + getSeenCount('hiragana') + '/' + hiraTotal + ', Katakana ' + getSeenCount('katakana') + '/' + kataTotal + '</p>' +
+      '<p class="muted">Mästarnivå (L3+): Hiragana ' + getLearnedCount('hiragana') + '/' + hiraTotal + ', Katakana ' + getLearnedCount('katakana') + '/' + kataTotal + '</p>' +
       '<p class="muted">Senast uppdaterad: ' + formatUpdatedAt(state.progressUpdatedAt) + '</p></article>' +
       '<article class="card"><h3>Streak-kalender (senaste 28 dagar)</h3>' + calendar + '</article>' +
       '<article class="card"><h3>Badges</h3><div class="badge-grid">' + badges + '</div></article>' +
@@ -1211,10 +1185,7 @@
       if (state.learn.unit === 'words') {
         speak(getCurrentLearnWords()[state.learn.cardIndex].word);
       } else {
-        const alphabet = ALPHABETS[state.learn.alphabet];
-        const symbol = alphabet.rows[state.learn.groupIndex][state.learn.cardIndex][0];
-        const charObj = findCharBySymbol(alphabet, symbol);
-        speak(charObj.char);
+        speak(ALPHABETS[state.learn.alphabet].groups[state.learn.groupIndex][state.learn.cardIndex].char);
       }
     } else if (action === 'start-learn-quiz') {
       startLearnQuiz();

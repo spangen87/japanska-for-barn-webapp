@@ -6,13 +6,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const curriculum = require('../src/curriculum.js');
 
 const ROOT = path.join(__dirname, '..');
-const STORAGE_KEY = 'japanskaBarnApp.v1';
+const STORAGE_KEY = 'japanskaBarnApp.v2';
 
 // Runs the real app scripts against a minimal DOM stub so click flows can be tested.
-function loadApp(savedState) {
-  const storage = {};
+function loadApp(savedState, extraStorage) {
+  const storage = { ...extraStorage };
   if (savedState) {
     storage[STORAGE_KEY] = JSON.stringify(savedState);
   }
@@ -43,7 +44,7 @@ function loadApp(savedState) {
   };
   context.window = context;
   vm.createContext(context);
-  ['src/app-core.js', 'src/main.js'].forEach((file) => {
+  ['src/app-core.js', 'src/curriculum.js', 'src/main.js'].forEach((file) => {
     vm.runInContext(fs.readFileSync(path.join(ROOT, file), 'utf8'), context, { filename: file });
   });
 
@@ -244,4 +245,71 @@ test('finishing a learn quiz counts towards the streak', () => {
   finishLearnQuiz(app);
 
   assert.equal(app.state().streak.lastDate, localDateKey(new Date()));
+});
+
+test('a combination group card shows the generated tip', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 16, cardIndex: 0 } });
+  app.click('go-learn');
+
+  assert.match(app.html(), /き \+ litet ゃ = きゃ/);
+});
+
+test('the rule group card shows its own tip', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 10, cardIndex: 0 } });
+  app.click('go-learn');
+
+  assert.match(app.html(), /Jämför med きって/);
+});
+
+test('progress view counts every hiragana lesson item', () => {
+  const app = loadApp();
+  app.click('go-progress');
+
+  assert.match(app.html(), /Hiragana 0\/108/);
+});
+
+test('learn quiz for a three-item group still offers four options', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 7, cardIndex: 0 } });
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+
+  app.state().learn.quiz.questions.forEach((question) => {
+    assert.equal(question.options.length, 4);
+  });
+});
+
+test('learn quiz for the rule group takes its options from the same group', () => {
+  const ruleRomaji = curriculum.hiragana.groups[10].items.map((item) => item.romaji);
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 10, cardIndex: 0 } });
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+
+  app.state().learn.quiz.questions.forEach((question) => {
+    question.options.forEach((option) => assert.ok(ruleRomaji.includes(option), option));
+  });
+});
+
+test('progress saved under the old storage key is ignored', () => {
+  const oldProgress = { completedGroups: { hiragana: [true, true, true] } };
+  const app = loadApp(null, { 'japanskaBarnApp.v1': JSON.stringify(oldProgress) });
+  app.click('go-learn');
+  app.click('pick-group', { groupIndex: '2' });
+
+  assert.equal(app.state().learn.groupIndex, 0);
+});
+
+test('mixed practice options stay unique for combinations found in both alphabets', () => {
+  const app = loadApp({
+    practice: { alphabet: 'mixed', level: 'chars', mode: 'char_to_romaji' },
+    seenChars: {
+      hiragana: { きゃ: true, きゅ: true, きょ: true, しゃ: true },
+      katakana: { キャ: true, キュ: true, キョ: true, シャ: true }
+    }
+  });
+  app.click('go-practice');
+  app.click('start-practice');
+
+  app.state().practice.session.questions.forEach((question) => {
+    assert.equal(new Set(question.options).size, 4);
+  });
 });
