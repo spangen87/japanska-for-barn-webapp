@@ -22,16 +22,24 @@ function loadApp(savedState, extraStorage, options) {
   const spoken = [];
   const voicesUsed = [];
   const focused = [];
+  const announcer = { textContent: '' };
   const appElement = {
     innerHTML: '',
     listener: null,
-    querySelector: (selector) => ({ focus: () => focused.push(selector) }),
+    // Finds the selector's attributes in one rendered tag, so focus tests fail when the target is missing.
+    querySelector: (selector) => {
+      const wanted = [...selector.matchAll(/\[([\w-]+)="([^"]*)"\]/g)].map((m) => m[1] + '="' + m[2] + '"')
+        .concat([...selector.matchAll(/#([\w-]+)/g)].map((m) => 'id="' + m[1] + '"'));
+      const tags = appElement.innerHTML.match(/<[^>]+>/g) || [];
+      const found = tags.some((tag) => wanted.every((attr) => tag.includes(attr)));
+      return found ? { focus: () => focused.push(selector) } : null;
+    },
     addEventListener: function (type, fn) {
       this.listener = fn;
     }
   };
   const context = {
-    document: { getElementById: () => appElement },
+    document: { getElementById: (id) => (id === 'announcer' ? announcer : appElement) },
     localStorage: {
       getItem: (key) => (key in storage ? storage[key] : null),
       setItem: (key, value) => {
@@ -66,6 +74,7 @@ function loadApp(savedState, extraStorage, options) {
     spoken: spoken,
     voicesUsed: voicesUsed,
     focused: focused,
+    announced: () => announcer.textContent,
     html: () => appElement.innerHTML,
     state: () => JSON.parse(storage[STORAGE_KEY]),
     click: (action, dataset) => {
@@ -614,9 +623,9 @@ test('passing a group quiz offers a button that opens the next group', () => {
   app.click('go-learn');
   app.click('start-learn-quiz');
   finishLearnQuiz(app);
-  assert.match(app.html(), /data-action="next-group"/);
+  assert.match(app.html(), /data-action="next-group" data-group-index="1"/);
 
-  app.click('next-group');
+  app.click('next-group', { groupIndex: '1' });
   assert.equal(app.state().learn.groupIndex, 1);
   assert.equal(app.state().learn.quiz, null);
 });
@@ -692,12 +701,15 @@ test('after answering, keyboard focus moves to the next button', () => {
   assert.equal(app.focused.at(-1), '[data-action="next-practice"]');
 });
 
-test('only the feedback line is announced to screen readers', () => {
+test('answer feedback is announced through the permanent announcer', () => {
   const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
   app.click('go-practice');
   app.click('start-practice');
+  assert.equal(app.announced(), '');
 
-  assert.match(app.html(), /<p class="feedback[^"]*" aria-live="polite">/);
+  const question = app.state().practice.session.questions[0];
+  app.click('answer-practice', { value: question.answer });
+  assert.equal(app.announced(), app.state().practice.session.feedback);
 });
 
 test('japanese text is marked with lang="ja"', () => {
@@ -776,4 +788,58 @@ test('speech falls back to any japanese voice', () => {
   app.click('go-learn');
 
   assert.equal(app.voicesUsed.at(-1).name, 'Eddy');
+});
+
+test('passing a group quiz leads to the word lesson it unlocked', () => {
+  const app = loadApp();
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+  finishLearnQuiz(app);
+  app.click('open-word-group', { wordGroupIndex: '0' });
+
+  assert.equal(app.state().learn.unit, 'words');
+  assert.equal(app.state().learn.wordGroupIndex, 0);
+});
+
+test('passing a word quiz offers the next lesson group', () => {
+  const afterGroup = curriculum.hiragana.wordGroups[0].afterGroup;
+  const app = loadApp({
+    completedGroups: { hiragana: completedUpTo(afterGroup) },
+    learn: { alphabet: 'hiragana', unit: 'words', wordGroupIndex: 0, cardIndex: 0 }
+  });
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+  finishLearnQuiz(app);
+  app.click('next-group', { groupIndex: String(afterGroup) });
+
+  assert.equal(app.state().learn.unit, 'group');
+  assert.equal(app.state().learn.groupIndex, afterGroup);
+});
+
+test('a doubled small-group quiz never asks the same character twice in a row', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 7, cardIndex: 0 } });
+  app.click('go-learn');
+  for (let run = 0; run < 10; run += 1) {
+    app.click('start-learn-quiz');
+    const prompts = app.state().learn.quiz.questions.map((question) => question.promptChar);
+    prompts.forEach((prompt, i) => assert.notEqual(prompt, prompts[i - 1], prompts.join(' ')));
+  }
+});
+
+test('after the last practice question focus goes to the play-again button', () => {
+  const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
+  app.click('go-practice');
+  app.click('start-practice');
+  finishPracticeSession(app);
+
+  assert.equal(app.focused.at(-1), '[data-action="start-practice"][data-value="again"]');
+});
+
+test('a saved quiz is dropped when its saved position no longer exists', () => {
+  const app = loadApp({
+    learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 30, cardIndex: 0, quiz: { index: 0, correct: 0, done: false, feedback: '', answered: null, questions: [] } }
+  });
+  app.click('go-learn');
+
+  assert.equal(app.state().learn.quiz, null);
 });

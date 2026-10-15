@@ -144,8 +144,10 @@
     const cardCount = unit === 'words'
       ? alphabet.wordGroups[wordGroupIndex].words.length
       : alphabet.groups[groupIndex].length;
+    const moved = alphabetId !== learn.alphabet || groupIndex !== learn.groupIndex || wordGroupIndex !== learn.wordGroupIndex;
     return {
       ...learn,
+      quiz: moved ? null : learn.quiz,
       alphabet: alphabetId,
       unit: unit,
       groupIndex: groupIndex,
@@ -313,7 +315,7 @@
     let questions = [];
     if (learn.unit === 'words') {
       const words = getCurrentLearnWords();
-      questions = words.map(function (wordObj) {
+      questions = shuffled(words).map(function (wordObj) {
         const options = buildOptions(withoutCategoriesOf(words, wordObj.meaning), wordObj.meaning, function (item) {
           return item.meaning;
         });
@@ -335,7 +337,7 @@
         });
 
       // Small groups ask each item twice, so one slip does not fail the quiz.
-      const quizChars = groupChars.length < 5 ? groupChars.concat(groupChars) : groupChars;
+      const quizChars = groupChars.length < 5 ? core.pickRounds(groupChars, groupChars.length * 2) : shuffled(groupChars);
       questions = quizChars.map(function (charObj) {
         const options = buildOptions(optionPool, charObj.romaji, function (item) {
           return item.romaji;
@@ -350,7 +352,6 @@
       });
     }
 
-    shuffle(questions);
 
     state.learn.quiz = {
       index: 0,
@@ -571,6 +572,12 @@
     return core.buildOptions(pool, answer, pickFn);
   }
 
+  function shuffled(items) {
+    const copy = items.slice();
+    shuffle(copy);
+    return copy;
+  }
+
   function shuffle(items) {
     core.shuffle(items);
   }
@@ -728,6 +735,8 @@
       renderProgress();
     }
 
+    announce(currentFeedback());
+
     if (pendingLearnFocus && state.view === 'learn') {
       pendingLearnFocus = false;
       requestAnimationFrame(function () {
@@ -737,6 +746,26 @@
         }
       });
     }
+  }
+
+  // The announcer lives outside #app so screen readers hear changes even though the app redraws.
+  function announce(text) {
+    const announcer = document.getElementById('announcer');
+    if (announcer && announcer.textContent !== text) {
+      announcer.textContent = text;
+    }
+  }
+
+  function currentFeedback() {
+    const quiz = state.learn.quiz;
+    const session = state.practice.session;
+    if (state.view === 'learn' && quiz && quiz.answered) {
+      return quiz.feedback;
+    }
+    if (state.view === 'practice' && session && session.answered) {
+      return session.feedback;
+    }
+    return '';
   }
 
   function topBarHtml() {
@@ -782,7 +811,7 @@
 
   function feedbackHtml(text, answered) {
     const resultClass = answered ? (answered.correct ? ' ok' : ' bad') : '';
-    return '<p class="feedback' + resultClass + '" aria-live="polite">' + (text || '') + '</p>';
+    return '<p class="feedback' + resultClass + '">' + (text || '') + '</p>';
   }
 
   function nextButtonHtml(answered, action, isLastQuestion) {
@@ -927,7 +956,7 @@
       }
     } else {
       learnBody =
-        '<article class="card learn-focus-card" id="learn-focus">' +
+        '<article class="card learn-focus-card" id="learn-focus" tabindex="-1">' +
         '<h3>' + (isWordUnit ? alphabet.name + ' – nya ord efter grupp ' + getCurrentLearnWordGroup().afterGroup : alphabet.name + ' Grupp ' + (learn.groupIndex + 1)) + '</h3>' +
         (isWordUnit ? '<p class="word-emoji" aria-hidden="true">' + current.emoji + '</p>' : '') +
         bigCharHtml(isWordUnit ? current.word : current.char) +
@@ -959,14 +988,26 @@
       '</section>';
   }
 
+  // After a passed group quiz the new words come first; after a passed word quiz, the next group.
   function quizResultButtonsHtml(passed, isWordQuiz) {
     const learn = state.learn;
-    const hasNextGroup = !isWordQuiz && learn.groupIndex + 1 < ALPHABETS[learn.alphabet].groups.length;
-    const primary = passed
-      ? (hasNextGroup ? '<button class="btn-main" data-action="next-group">Nästa grupp →</button>' : '')
-      : '<button class="btn-main" data-action="retry-learn-quiz">Försök igen</button>';
-    return '<div class="quiz-result-actions">' + primary +
-      '<button class="btn-soft" data-action="close-learn-quiz">Tillbaka till gruppen</button></div>';
+    const alphabet = ALPHABETS[learn.alphabet];
+    if (!passed) {
+      return '<div class="quiz-result-actions"><button class="btn-main" data-action="retry-learn-quiz">Försök igen</button>' +
+        '<button class="btn-soft" data-action="close-learn-quiz">Tillbaka till gruppen</button></div>';
+    }
+    const wordGroupIndex = isWordQuiz ? -1 : alphabet.wordGroups.findIndex(function (group, index) {
+      return group.afterGroup === learn.groupIndex + 1 && !state.completedWordLessons[learn.alphabet][index];
+    });
+    const wordButton = wordGroupIndex >= 0
+      ? '<button class="btn-main" data-action="open-word-group" data-word-group-index="' + wordGroupIndex + '">⭐ Nya ord →</button>'
+      : '';
+    const nextGroupIndex = isWordQuiz ? getCurrentLearnWordGroup().afterGroup : learn.groupIndex + 1;
+    const nextGroupButton = nextGroupIndex < alphabet.groups.length
+      ? '<button class="' + (wordButton ? 'btn-soft' : 'btn-main') + '" data-action="next-group" data-group-index="' + nextGroupIndex + '">Nästa grupp →</button>'
+      : '';
+    return '<div class="quiz-result-actions">' + wordButton + nextGroupButton +
+      '<button class="btn-soft" data-action="close-learn-quiz">Tillbaka</button></div>';
   }
 
   function renderPractice() {
@@ -1007,7 +1048,7 @@
           '<article class="card"><h3>Resultat</h3>' +
           '<p><strong>' + pct + '% rätt</strong> (' + session.correct + '/' + session.questions.length + ')</p>' +
           '<p class="muted">Bästa streak i sessionen: ' + session.bestStreak + '</p>' +
-          '<button class="btn-main" data-action="start-practice">Kör igen</button></article>';
+          '<button class="btn-main" data-action="start-practice" data-value="again">Kör igen</button></article>';
       } else {
         const q = session.questions[session.index];
         if (q.mode === 'word_to_meaning') {
@@ -1108,8 +1149,13 @@
   const FOCUS_AFTER = {
     'answer-practice': ['[data-action="next-practice"]'],
     'answer-learn-quiz': ['[data-action="next-learn-quiz"]'],
-    'next-practice': ['[data-action="answer-practice"]', '[data-action="start-practice"]'],
-    'next-learn-quiz': ['[data-action="answer-learn-quiz"]', '[data-action="next-group"]', '[data-action="retry-learn-quiz"]'],
+    'next-practice': ['[data-action="answer-practice"]', '[data-action="start-practice"][data-value="again"]'],
+    'next-learn-quiz': ['[data-action="answer-learn-quiz"]', '[data-action="open-word-group"]', '[data-action="next-group"]',
+      '[data-action="retry-learn-quiz"]', '[data-action="close-learn-quiz"]'],
+    'next-group': ['#learn-focus'],
+    'open-word-group': ['#learn-focus'],
+    'pick-group': ['#learn-focus'],
+    'pick-word-lesson': ['#learn-focus'],
     'start-practice': ['[data-action="answer-practice"]'],
     'start-learn-quiz': ['[data-action="answer-learn-quiz"]'],
     'retry-learn-quiz': ['[data-action="answer-learn-quiz"]']
@@ -1210,9 +1256,19 @@
       answerLearnQuiz(value);
     } else if (action === 'next-learn-quiz') {
       nextLearnQuizQuestion();
+    } else if (action === 'open-word-group') {
+      const wordGroupIndex = Number(target.dataset.wordGroupIndex || 0);
+      if (isWordGroupUnlocked(state.learn.alphabet, wordGroupIndex)) {
+        state.learn.unit = 'words';
+        state.learn.wordGroupIndex = wordGroupIndex;
+        state.learn.cardIndex = 0;
+        state.learn.quiz = null;
+        pendingLearnFocus = true;
+        render();
+      }
     } else if (action === 'next-group') {
       state.learn.unit = 'group';
-      state.learn.groupIndex = Math.min(state.learn.groupIndex + 1, ALPHABETS[state.learn.alphabet].groups.length - 1);
+      state.learn.groupIndex = Math.min(Number(target.dataset.groupIndex || 0), ALPHABETS[state.learn.alphabet].groups.length - 1);
       state.learn.cardIndex = 0;
       state.learn.quiz = null;
       pendingLearnFocus = true;

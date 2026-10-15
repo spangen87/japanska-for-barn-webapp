@@ -94,6 +94,10 @@ test('categories only name meanings that exist in the word lists', () => {
   });
 });
 
+test('penguins count as birds', () => {
+  assert.ok(curriculum.categories['fågel'].includes('pingvin'));
+});
+
 ['hiragana', 'katakana'].forEach((alphabetId) => {
   const alphabet = curriculum[alphabetId];
   const { groupOf, romajiOf } = indexUnits(alphabet);

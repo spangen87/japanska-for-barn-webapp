@@ -365,7 +365,7 @@
       'giraff', 'elefant', 'får', 'gris', 'orm', 'räka', 'fjäril', 'guldfisk', 'drake', 'koala', 'lejon', 'havsutter',
       'gorilla', 'kräfta', 'panda', 'pingvin'],
     fisk: ['guldfisk'],
-    fågel: ['höna'],
+    fågel: ['höna', 'pingvin'],
     insekt: ['fjäril'],
     blomma: ['körsbärsblomma', 'maskros', 'tulpan'],
     frukt: ['vattenmelon', 'persika', 'mandarin', 'äpple', 'melon', 'citron', 'banan', 'ananas'],
