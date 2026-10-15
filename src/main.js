@@ -262,6 +262,36 @@
     return core.isGroupUnlocked(state.completedGroups[alphabetId], groupIndex);
   }
 
+  // Voices that tend to sound natural; any Japanese voice is used if none of these exist.
+  const PREFERRED_VOICE_NAMES = /Google|Kyoko|O-Ren|Otoya|Hattori|Nanami|Haruka|Ayumi/i;
+
+  function getVoices() {
+    const synth = window.speechSynthesis;
+    return synth && typeof synth.getVoices === 'function' ? synth.getVoices() : [];
+  }
+
+  function getJapaneseVoice() {
+    const voices = getVoices().filter(function (voice) {
+      return /^ja/i.test(voice.lang);
+    });
+    return voices.find(function (voice) {
+      return PREFERRED_VOICE_NAMES.test(voice.name);
+    }) || voices.find(function (voice) {
+      return /^ja[-_]JP$/i.test(voice.lang);
+    }) || voices[0] || null;
+  }
+
+  // 'unknown' while the browser is still loading its voice list.
+  function getVoiceStatus() {
+    if (!('speechSynthesis' in window)) {
+      return 'missing';
+    }
+    if (!getVoices().length) {
+      return 'unknown';
+    }
+    return getJapaneseVoice() ? 'ok' : 'missing';
+  }
+
   function speak(text) {
     if (!('speechSynthesis' in window)) {
       return;
@@ -269,6 +299,10 @@
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ja-JP';
+    const voice = getJapaneseVoice();
+    if (voice) {
+      utterance.voice = voice;
+    }
     utterance.rate = 0.85;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
@@ -354,6 +388,12 @@
         questions: questions
       };
       state.practice.notice = '';
+      return;
+    }
+
+    if (practice.mode === 'sound_to_char' && getVoiceStatus() === 'missing') {
+      state.practice.session = null;
+      state.practice.notice = 'Ljud → Tecken behöver en japansk röst på enheten. Välj Tecken → Ljud så länge.';
       return;
     }
 
@@ -727,8 +767,17 @@
     return /[\u3040-\u30ff]/.test(text) ? ' lang="ja"' : '';
   }
 
-  function toggleButtonHtml(active, action, value, label) {
-    return '<button class="btn-soft toggle-btn ' + (active ? 'active' : '') + '" data-action="' + action + '" data-value="' + value + '" aria-pressed="' + (active ? 'true' : 'false') + '">' + label + '</button>';
+  function toggleButtonHtml(active, action, value, label, disabled) {
+    return '<button class="btn-soft toggle-btn ' + (active ? 'active' : '') + '" data-action="' + action + '" data-value="' + value + '" aria-pressed="' + (active ? 'true' : 'false') + '"' + (disabled ? ' disabled' : '') + '>' + label + '</button>';
+  }
+
+  function voiceWarningHtml() {
+    if (getVoiceStatus() !== 'missing') {
+      return '';
+    }
+    return '<article class="card voice-warning" role="status"><strong>🔇 Ingen japansk röst hittades.</strong> ' +
+      '<span class="muted">Ljudet fungerar inte på den här enheten. Be en vuxen installera en japansk röst i enhetens inställningar ' +
+      '(på iPad: Inställningar → Hjälpmedel → Talat innehåll → Röster) eller prova Chrome eller Safari.</span></article>';
   }
 
   function feedbackHtml(text, answered) {
@@ -897,6 +946,7 @@
 
     app.innerHTML =
       topBarHtml() +
+      voiceWarningHtml() +
       '<section class="learn-layout">' +
       '<article class="card"><div class="alphabet-toggle">' +
       toggleButtonHtml(learn.alphabet === 'hiragana', 'set-learn-alphabet', 'hiragana', 'Hiragana') +
@@ -939,7 +989,7 @@
         :
       '<div class="mode-toggle">' +
       toggleButtonHtml(practice.mode === 'char_to_romaji', 'set-practice-mode', 'char_to_romaji', 'Tecken → Ljud') +
-      toggleButtonHtml(practice.mode === 'sound_to_char', 'set-practice-mode', 'sound_to_char', 'Ljud → Tecken') +
+      toggleButtonHtml(practice.mode === 'sound_to_char', 'set-practice-mode', 'sound_to_char', 'Ljud → Tecken', getVoiceStatus() === 'missing') +
       '</div>') +
       '<div class="alphabet-toggle" style="margin-top:8px;">' +
       toggleButtonHtml(practice.alphabet === 'hiragana', 'set-practice-alphabet', 'hiragana', 'Hiragana') +
@@ -983,6 +1033,7 @@
 
     app.innerHTML =
       topBarHtml() +
+      voiceWarningHtml() +
       '<section class="practice-layout">' +
       '<article class="card"><button class="btn-soft" data-action="go-home">Hem</button></article>' +
       sessionBody +
@@ -1076,6 +1127,15 @@
         return;
       }
     }
+  }
+
+  // Browsers load their voices after the page; redraw so the voice warning appears or disappears.
+  if ('speechSynthesis' in window && typeof window.speechSynthesis.addEventListener === 'function') {
+    window.speechSynthesis.addEventListener('voiceschanged', function () {
+      if (state.view === 'learn' || state.view === 'practice') {
+        render();
+      }
+    });
   }
 
   app.addEventListener('click', function (event) {

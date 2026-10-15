@@ -358,6 +358,11 @@ button {
   }
 }
 
+.voice-warning {
+  background: #fff8e8;
+  border-color: #ffd98d;
+}
+
 .quiz-result-actions {
   display: flex;
   gap: 10px;

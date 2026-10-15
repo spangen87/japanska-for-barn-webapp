@@ -725,3 +725,55 @@ test('toggle buttons tell screen readers which one is selected', () => {
   assert.match(app.html(), /data-action="set-learn-alphabet" data-value="hiragana" aria-pressed="true"/);
   assert.match(app.html(), /data-action="set-learn-alphabet" data-value="katakana" aria-pressed="false"/);
 });
+
+const SWEDISH_VOICE = { lang: 'sv-SE', name: 'Alva' };
+
+test('a warning is shown when the device has no japanese voice', () => {
+  const app = loadApp(null, null, { voices: [SWEDISH_VOICE] });
+  app.click('start-game');
+  app.click('go-learn');
+  assert.match(app.html(), /Ingen japansk röst/);
+
+  app.click('go-practice');
+  assert.match(app.html(), /Ingen japansk röst/);
+});
+
+test('no voice warning is shown while the voice list is still loading', () => {
+  const app = loadApp(null, null, { voices: [] });
+  app.click('start-game');
+  app.click('go-learn');
+
+  assert.doesNotMatch(app.html(), /Ingen japansk röst/);
+});
+
+test('listening practice cannot start without a japanese voice', () => {
+  const app = loadApp(
+    { ...SEEN_FIRST_HIRAGANA_ROW, practice: { alphabet: 'hiragana', level: 'chars', mode: 'sound_to_char' } },
+    null,
+    { voices: [SWEDISH_VOICE] }
+  );
+  app.click('go-practice');
+  assert.match(app.html(), /data-value="sound_to_char" aria-pressed="true" disabled/);
+
+  app.click('start-practice');
+  assert.equal(app.state().practice.session, null);
+  assert.match(app.state().practice.notice, /japansk röst/);
+});
+
+test('speech uses the best available japanese voice', () => {
+  const app = loadApp(null, null, {
+    voices: [SWEDISH_VOICE, { lang: 'ja-JP', name: 'Eddy' }, { lang: 'ja-JP', name: 'Kyoko' }]
+  });
+  app.click('start-game');
+  app.click('go-learn');
+
+  assert.equal(app.voicesUsed.at(-1).name, 'Kyoko');
+});
+
+test('speech falls back to any japanese voice', () => {
+  const app = loadApp(null, null, { voices: [SWEDISH_VOICE, { lang: 'ja_JP', name: 'Eddy' }] });
+  app.click('start-game');
+  app.click('go-learn');
+
+  assert.equal(app.voicesUsed.at(-1).name, 'Eddy');
+});
