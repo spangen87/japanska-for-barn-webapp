@@ -493,3 +493,57 @@ test('a saved unknown alphabet falls back to hiragana', () => {
 
   assert.equal(app.state().learn.alphabet, 'hiragana');
 });
+
+test('a practice session never shows the same character twice in a row', () => {
+  for (let run = 0; run < 5; run += 1) {
+    const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
+    app.click('go-practice');
+    app.click('start-practice');
+
+    const chars = app.state().practice.session.questions.map((question) => question.char);
+    chars.forEach((char, i) => assert.notEqual(char, chars[i - 1], chars.join(' ')));
+    chars.forEach((char) => assert.ok(chars.filter((c) => c === char).length <= 2, chars.join(' ')));
+  }
+});
+
+test('practice words reshuffle each round instead of repeating a fixed cycle', () => {
+  const orders = [];
+  for (let run = 0; run < 6; run += 1) {
+    const app = loadApp({
+      completedGroups: { hiragana: completedUpTo(1) },
+      practice: { alphabet: 'hiragana', level: 'words' }
+    });
+    app.click('go-practice');
+    app.click('start-practice');
+    const words = app.state().practice.session.questions.map((question) => question.word);
+    orders.push(words.slice(0, 4).join() === words.slice(4, 8).join());
+  }
+
+  assert.ok(orders.includes(false));
+});
+
+test('word quizzes never offer the right answer\'s category as a wrong option', () => {
+  const wordGroupIndex = curriculum.hiragana.wordGroups.findIndex((group) => group.words.some((word) => word.meaning === 'djur'));
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'words', wordGroupIndex: wordGroupIndex, cardIndex: 0 } });
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+
+  app.state().learn.quiz.questions.forEach((question) => {
+    question.options.forEach((option) => {
+      const members = curriculum.categories[option] || [];
+      assert.ok(!members.includes(question.answer), question.answer + ' / ' + option);
+    });
+  });
+});
+
+test('quizzes for small groups never borrow whole words from the rule group', () => {
+  const ruleRomaji = curriculum.hiragana.groups[10].items.map((item) => item.romaji);
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 13, cardIndex: 0 } });
+  app.click('go-learn');
+  for (let run = 0; run < 10; run += 1) {
+    app.click('start-learn-quiz');
+    app.state().learn.quiz.questions.forEach((question) => {
+      question.options.forEach((option) => assert.ok(!ruleRomaji.includes(option), option));
+    });
+  }
+});

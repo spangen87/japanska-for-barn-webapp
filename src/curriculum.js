@@ -359,6 +359,23 @@
     ])
   ];
 
+  // A category meaning is never offered as a wrong option for one of its members ("djur" for "hund").
+  const CATEGORIES = {
+    djur: ['hund', 'katt', 'ko', 'bläckfisk', 'fisk', 'björn', 'insekt', 'apa', 'fågel', 'ekorre', 'groda', 'krokodil', 'höna',
+      'giraff', 'elefant', 'får', 'gris', 'orm', 'räka', 'fjäril', 'guldfisk', 'drake', 'koala', 'lejon', 'havsutter',
+      'gorilla', 'kräfta', 'panda', 'pingvin'],
+    fisk: ['guldfisk'],
+    fågel: ['höna'],
+    insekt: ['fjäril'],
+    blomma: ['körsbärsblomma', 'maskros', 'tulpan'],
+    frukt: ['vattenmelon', 'persika', 'mandarin', 'äpple', 'melon', 'citron', 'banan', 'ananas'],
+    grönsaker: ['gurka', 'vitkål', 'tomat'],
+    kläder: ['mössa', 'slips', 'tröja', 'jeans', 'skjorta', 'jacka'],
+    färg: ['blå', 'röd', 'vit', 'svart', 'grön', 'brun'],
+    familj: ['mamma', 'pappa', 'storebror', 'storasyster'],
+    kropp: ['hand', 'mun', 'fot', 'öga', 'öra', 'finger', 'ansikte']
+  };
+
   function toKatakana(text) {
     return Array.from(text).map(function (ch) {
       const code = ch.charCodeAt(0);
@@ -437,7 +454,8 @@
         })
       }]),
       wordGroups: KATAKANA_WORD_GROUPS
-    }
+    },
+    categories: CATEGORIES
   };
 
   if (typeof module !== 'undefined' && module.exports) {

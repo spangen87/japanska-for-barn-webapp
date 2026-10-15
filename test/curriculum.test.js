@@ -86,6 +86,14 @@ test('loanword sound tips show how the small kana combines', () => {
   assert.equal(curriculum.katakana.groups[21].items[0].tip, 'テ + liten ィ = ティ (ti). Ljudet finns bara i lånord.');
 });
 
+test('categories only name meanings that exist in the word lists', () => {
+  const meanings = new Set(['hiragana', 'katakana'].flatMap((id) => allWords(curriculum[id]).map((word) => word.meaning)));
+  Object.keys(curriculum.categories).forEach((category) => {
+    assert.ok(meanings.has(category), category);
+    curriculum.categories[category].forEach((member) => assert.ok(meanings.has(member), member));
+  });
+});
+
 ['hiragana', 'katakana'].forEach((alphabetId) => {
   const alphabet = curriculum[alphabetId];
   const { groupOf, romajiOf } = indexUnits(alphabet);

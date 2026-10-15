@@ -48,6 +48,7 @@
         return {
           char: item.char,
           romaji: item.romaji,
+          isRuleExample: Boolean(group.teaches),
           mnemonic: MNEMONIC_OVERRIDES[item.char] || item.tip || (item.char + ' (' + item.romaji + ') - koppla tecknet till ljudet ' + item.romaji + '.'),
           tip: PRONUNCIATION_TIPS[item.romaji] || ''
         };
@@ -274,7 +275,7 @@
     if (learn.unit === 'words') {
       const words = getCurrentLearnWords();
       questions = words.map(function (wordObj) {
-        const options = buildOptions(words, wordObj.meaning, function (item) {
+        const options = buildOptions(withoutCategoriesOf(words, wordObj.meaning), wordObj.meaning, function (item) {
           return item.meaning;
         });
         return {
@@ -290,7 +291,9 @@
       // Same-group distractors train the differences that matter; small groups borrow from earlier groups.
       const optionPool = groupChars.length >= 4
         ? groupChars
-        : alphabet.groups.slice(0, learn.groupIndex + 1).flat();
+        : alphabet.groups.slice(0, learn.groupIndex + 1).flat().filter(function (item) {
+          return !item.isRuleExample;
+        });
 
       questions = groupChars.map(function (charObj) {
         const options = buildOptions(optionPool, charObj.romaji, function (item) {
@@ -375,20 +378,13 @@
   }
 
   function buildWordQuestions(pool, count) {
-    const source = pool.slice();
-    shuffle(source);
-    const picked = [];
-    for (let i = 0; i < count; i += 1) {
-      picked.push(source[i % source.length]);
-    }
-
-    return picked.map(function (wordObj) {
+    return core.pickRounds(pool, count).map(function (wordObj) {
       return createWordQuestion(wordObj, pool);
     });
   }
 
   function createWordQuestion(wordObj, pool) {
-    const options = buildOptions(pool, wordObj.meaning, function (item) {
+    const options = buildOptions(withoutCategoriesOf(pool, wordObj.meaning), wordObj.meaning, function (item) {
       return item.meaning;
     });
     return {
@@ -399,6 +395,14 @@
       options: options,
       mode: 'word_to_meaning'
     };
+  }
+
+  // Leaves out words whose meaning is the category of the answer, such as "djur" when the answer is "hund".
+  function withoutCategoriesOf(words, meaning) {
+    return words.filter(function (item) {
+      const members = curriculum.categories[item.meaning];
+      return !members || !members.includes(meaning);
+    });
   }
 
   function getPracticePool(alphabetChoice) {
@@ -442,35 +446,13 @@
   }
 
   function pickPracticeChars(pool, count, alphabetChoice) {
-    const scored = pool.map(function (charObj) {
+    // Weak, often-missed and due characters come first in each round.
+    return core.pickRounds(pool, count, function (charObj) {
       const progress = getProgressEntry(charObj.char, alphabetChoice);
       const due = progress.nextReview <= todayKey() ? 2 : 0;
       const weak = Math.max(0, 6 - progress.level);
-      const weight = weak + progress.timesWrong * 0.3 + due + 1;
-      return { charObj: charObj, weight: weight };
+      return weak + progress.timesWrong * 0.3 + due + 1;
     });
-
-    const picked = [];
-    for (let i = 0; i < count; i += 1) {
-      picked.push(weightedPick(scored));
-    }
-
-    return picked;
-  }
-
-  function weightedPick(items) {
-    const totalWeight = items.reduce(function (sum, item) {
-      return sum + item.weight;
-    }, 0);
-
-    let random = Math.random() * totalWeight;
-    for (let i = 0; i < items.length; i += 1) {
-      random -= items[i].weight;
-      if (random <= 0) {
-        return items[i].charObj;
-      }
-    }
-    return items[items.length - 1].charObj;
   }
 
   function getProgressEntry(char, alphabetChoice) {

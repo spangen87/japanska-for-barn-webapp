@@ -53,9 +53,12 @@
     const next = { ...entry };
     if (correct) {
       next.timesCorrect += 1;
-      next.level = Math.min(5, next.level + 1);
-      const spacing = [0, 1, 2, 4, 7][next.level - 1] || 7;
-      next.nextReview = datePlusDays(today, spacing);
+      // Only a review on or after its due date moves the level, so one session cannot reach mastery.
+      if (entry.nextReview <= today) {
+        next.level = Math.min(5, next.level + 1);
+        const spacing = [0, 1, 2, 4, 7][next.level - 1] || 7;
+        next.nextReview = datePlusDays(today, spacing);
+      }
     } else {
       next.timesWrong += 1;
       next.level = Math.max(1, next.level - 1);
@@ -99,6 +102,46 @@
     }
   }
 
+  // Draws count items in rounds: every item once (heavier first, by weight) before any repeats,
+  // and never the same item twice in a row.
+  function pickRounds(items, count, weightOf) {
+    const weight = weightOf || function () {
+      return 1;
+    };
+    const picked = [];
+    let remaining = [];
+    while (picked.length < count && items.length) {
+      if (!remaining.length) {
+        remaining = items.slice();
+      }
+      const last = picked[picked.length - 1];
+      const fresh = remaining.filter(function (item) {
+        return item !== last;
+      });
+      const choice = weightedChoice(fresh.length ? fresh : remaining, weight);
+      remaining.splice(remaining.indexOf(choice), 1);
+      picked.push(choice);
+    }
+    return picked;
+  }
+
+  function weightedChoice(items, weight) {
+    const total = items.reduce(function (sum, item) {
+      return sum + weight(item);
+    }, 0);
+    if (total <= 0) {
+      return items[Math.floor(Math.random() * items.length)];
+    }
+    let random = Math.random() * total;
+    for (let i = 0; i < items.length; i += 1) {
+      random -= weight(items[i]);
+      if (random < 0) {
+        return items[i];
+      }
+    }
+    return items[items.length - 1];
+  }
+
   function buildOptions(pool, answer, pickFn) {
     const distractors = Array.from(new Set(pool.map(pickFn))).filter(function (value) {
       return value !== answer;
@@ -119,6 +162,7 @@
     getProgressPercent: getProgressPercent,
     isGroupUnlocked: isGroupUnlocked,
     isWordGroupUnlocked: isWordGroupUnlocked,
+    pickRounds: pickRounds,
     shuffle: shuffle,
     updateStreak: updateStreak
   };

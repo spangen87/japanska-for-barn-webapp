@@ -125,3 +125,34 @@ test('isWordGroupUnlocked opens a word group once its lesson group is completed'
   assert.equal(core.isWordGroupUnlocked([true, false], 1), true);
   assert.equal(core.isWordGroupUnlocked([true, false], 2), false);
 });
+
+test('applyReview counts a correct answer without levelling up when the character is not due yet', () => {
+  const entry = { level: 2, timesCorrect: 1, timesWrong: 0, nextReview: '2026-03-01' };
+  const next = core.applyReview(entry, true, '2026-02-27');
+
+  assert.equal(next.level, 2);
+  assert.equal(next.timesCorrect, 2);
+  assert.equal(next.nextReview, '2026-03-01');
+});
+
+test('pickRounds never picks the same item twice in a row', () => {
+  for (let run = 0; run < 50; run += 1) {
+    const picked = core.pickRounds(['a', 'b', 'c', 'd'], 10);
+    assert.equal(picked.length, 10);
+    picked.forEach((item, i) => assert.notEqual(item, picked[i - 1]));
+  }
+});
+
+test('pickRounds uses every item once before repeating any', () => {
+  const picked = core.pickRounds(['a', 'b', 'c', 'd'], 8);
+
+  assert.deepEqual(picked.slice(0, 4).sort(), ['a', 'b', 'c', 'd']);
+  assert.deepEqual(picked.slice(4).sort(), ['a', 'b', 'c', 'd']);
+});
+
+test('pickRounds draws heavier items first within a round', () => {
+  for (let run = 0; run < 20; run += 1) {
+    const picked = core.pickRounds(['a', 'b', 'c'], 1, (item) => (item === 'a' ? 1 : 0));
+    assert.deepEqual(picked, ['a']);
+  }
+});
