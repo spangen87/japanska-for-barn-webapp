@@ -125,10 +125,36 @@
       const baseline = createInitialState();
       const merged = deepMerge(baseline, parsed);
       merged.view = 'intro';
+      merged.learn = clampLearnPosition(merged.learn);
       return merged;
     } catch (error) {
       return createInitialState();
     }
+  }
+
+  // Saved positions can outlive edits to the curriculum; keep them inside the current data.
+  function clampLearnPosition(learn) {
+    const alphabetId = ALPHABETS[learn.alphabet] ? learn.alphabet : 'hiragana';
+    const alphabet = ALPHABETS[alphabetId];
+    const unit = learn.unit === 'words' ? 'words' : 'group';
+    const groupIndex = clampIndex(learn.groupIndex, alphabet.groups.length);
+    const wordGroupIndex = clampIndex(learn.wordGroupIndex, alphabet.wordGroups.length);
+    const cardCount = unit === 'words'
+      ? alphabet.wordGroups[wordGroupIndex].words.length
+      : alphabet.groups[groupIndex].length;
+    return {
+      ...learn,
+      alphabet: alphabetId,
+      unit: unit,
+      groupIndex: groupIndex,
+      wordGroupIndex: wordGroupIndex,
+      cardIndex: clampIndex(learn.cardIndex, cardCount)
+    };
+  }
+
+  function clampIndex(value, length) {
+    const index = Number.isInteger(value) ? value : 0;
+    return Math.min(Math.max(index, 0), length - 1);
   }
 
   function deepMerge(base, source) {

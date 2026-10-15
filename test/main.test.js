@@ -12,15 +12,20 @@ const ROOT = path.join(__dirname, '..');
 const STORAGE_KEY = 'japanskaBarnApp.v2';
 
 // Runs the real app scripts against a minimal DOM stub so click flows can be tested.
-function loadApp(savedState, extraStorage) {
+// options: voices (speechSynthesis.getVoices result), failStorageWrites, confirm (answer to window.confirm).
+function loadApp(savedState, extraStorage, options) {
+  const opts = options || {};
   const storage = { ...extraStorage };
   if (savedState) {
     storage[STORAGE_KEY] = JSON.stringify(savedState);
   }
   const spoken = [];
+  const voicesUsed = [];
+  const focused = [];
   const appElement = {
     innerHTML: '',
     listener: null,
+    querySelector: (selector) => ({ focus: () => focused.push(selector) }),
     addEventListener: function (type, fn) {
       this.listener = fn;
     }
@@ -30,13 +35,22 @@ function loadApp(savedState, extraStorage) {
     localStorage: {
       getItem: (key) => (key in storage ? storage[key] : null),
       setItem: (key, value) => {
+        if (opts.failStorageWrites) {
+          throw new Error('QuotaExceededError');
+        }
         storage[key] = String(value);
       }
     },
     speechSynthesis: {
       cancel: () => {},
-      speak: (utterance) => spoken.push(utterance.text)
+      getVoices: () => opts.voices || [],
+      addEventListener: () => {},
+      speak: (utterance) => {
+        spoken.push(utterance.text);
+        voicesUsed.push(utterance.voice);
+      }
     },
+    confirm: () => opts.confirm !== false,
     SpeechSynthesisUtterance: function (text) {
       this.text = text;
     },
@@ -50,6 +64,8 @@ function loadApp(savedState, extraStorage) {
 
   return {
     spoken: spoken,
+    voicesUsed: voicesUsed,
+    focused: focused,
     html: () => appElement.innerHTML,
     state: () => JSON.parse(storage[STORAGE_KEY]),
     click: (action, dataset) => {
@@ -454,4 +470,26 @@ test('listening practice never offers two characters that sound the same', () =>
     const sounds = question.options.map((option) => SOUND_OF[option]);
     assert.equal(new Set(sounds).size, sounds.length, question.options.join(' '));
   });
+});
+
+test('a saved word card position past the end of its group does not break Lär dig', () => {
+  const words = curriculum.hiragana.wordGroups[0].words;
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'words', wordGroupIndex: 0, cardIndex: 9 } });
+  app.click('go-learn');
+
+  assert.ok(app.html().includes(words[words.length - 1].word));
+});
+
+test('a saved lesson group past the end of the curriculum falls back to the last group', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 30, cardIndex: 0 } });
+  app.click('go-learn');
+
+  assert.equal(app.state().learn.groupIndex, 20);
+});
+
+test('a saved unknown alphabet falls back to hiragana', () => {
+  const app = loadApp({ learn: { alphabet: 'kanji', unit: 'group', groupIndex: 0, cardIndex: 0 } });
+  app.click('go-learn');
+
+  assert.equal(app.state().learn.alphabet, 'hiragana');
 });
