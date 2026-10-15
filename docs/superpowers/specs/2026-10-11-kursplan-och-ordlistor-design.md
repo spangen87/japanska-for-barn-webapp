@@ -55,7 +55,7 @@ Totalt blir det 108 lektionsposter i hiragana och 115 i katakana.
 - **Tipsraden skapas automatiskt** för grupp 12–22:
   - ゛ och ゜: "か + ゛ = が: k blir g". じ får tillägget "uttalas ji".
   - ゃゅょ: "き + litet ゃ = きゃ: säg ki-a snabbt, så blir det kya".
-  - Lånordsljud: "テ + liten ィ = ティ (ti)".
+  - Lånordsljud: "テ + litet ィ = ティ (ti)".
 - Grundtecknens minnesknep ändras inte här. Det tas i #13.
 
 ## Ordlistor

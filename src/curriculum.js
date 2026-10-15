@@ -407,7 +407,7 @@
   }
 
   function loanwordTip(item) {
-    return item.char[0] + ' + liten ' + item.char[1] + ' = ' + item.char + ' (' + item.romaji + '). Ljudet finns bara i lånord.';
+    return item.char[0] + ' + litet ' + item.char[1] + ' = ' + item.char + ' (' + item.romaji + '). Ljudet finns bara i lånord.';
   }
 
   function buildKanaGroups(convert, ruleGroup) {

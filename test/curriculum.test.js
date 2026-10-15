@@ -83,7 +83,7 @@ test('combination tips explain how to say the sound', () => {
 });
 
 test('loanword sound tips show how the small kana combines', () => {
-  assert.equal(curriculum.katakana.groups[21].items[0].tip, 'テ + liten ィ = ティ (ti). Ljudet finns bara i lånord.');
+  assert.equal(curriculum.katakana.groups[21].items[0].tip, 'テ + litet ィ = ティ (ti). Ljudet finns bara i lånord.');
 });
 
 test('categories only name meanings that exist in the word lists', () => {
@@ -116,6 +116,13 @@ test('categories only name meanings that exist in the word lists', () => {
     const tooEarly = allWords(alphabet)
       .filter((word) => Math.max(...splitUnits(word.word).map((unit) => groupOf[unit] || Infinity)) > word.afterGroup)
       .map((word) => word.word);
+    assert.deepEqual(tooEarly, []);
+  });
+
+  test(alphabetId + ': rule group items only use kana taught up to the rule group', () => {
+    const tooEarly = alphabet.groups[RULE_GROUP - 1].items
+      .filter((item) => Math.max(...splitUnits(item.char).map((unit) => groupOf[unit] || Infinity)) > RULE_GROUP)
+      .map((item) => item.char);
     assert.deepEqual(tooEarly, []);
   });
 

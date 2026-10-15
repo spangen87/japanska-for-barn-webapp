@@ -330,7 +330,8 @@
       }));
       if (distinctMeanings.size < 4) {
         state.practice.session = null;
-        state.practice.notice = 'Klara fler grupper i Lär dig för att låsa upp ord.';
+        const groupWord = practice.alphabet === 'mixed' ? 'grupper' : practice.alphabet + 'grupper';
+        state.practice.notice = 'Klara fler ' + groupWord + ' i Lär dig för att låsa upp ord.';
         return;
       }
       const questions = buildWordQuestions(wordPool, SESSION_QUESTION_COUNT);
@@ -422,9 +423,13 @@
     });
   }
 
-  function getCurrentLearnWords() {
+  function getCurrentLearnWordGroup() {
     const groups = ALPHABETS[state.learn.alphabet].wordGroups;
-    return (groups[state.learn.wordGroupIndex] || groups[0]).words;
+    return groups[state.learn.wordGroupIndex] || groups[0];
+  }
+
+  function getCurrentLearnWords() {
+    return getCurrentLearnWordGroup().words;
   }
 
   function isWordGroupUnlocked(alphabetId, wordGroupIndex) {
@@ -800,7 +805,7 @@
       const done = state.completedWordLessons[learn.alphabet][wordIndex];
       return (
         '<div class="group-card word-group-card ' + (unlocked ? '' : 'locked') + '">' +
-        '<h4>⭐ Nya ord ' + (done ? '✅' : unlocked ? '' : '🔒') + '</h4>' +
+        '<h4>⭐ Nya ord ' + (wordIndex + 1) + ' ' + (done ? '✅' : unlocked ? '' : '🔒') + '</h4>' +
         '<p class="muted" style="font-family:var(--jp-font)">' + wordGroup.words.map(function (item) {
           return item.word;
         }).join(' ') + '</p>' +
@@ -849,7 +854,7 @@
     } else {
       learnBody =
         '<article class="card learn-focus-card" id="learn-focus">' +
-        '<h3>' + (isWordUnit ? alphabet.name + ' – nya ord efter grupp ' + (alphabet.wordGroups[learn.wordGroupIndex] || alphabet.wordGroups[0]).afterGroup : alphabet.name + ' Grupp ' + (learn.groupIndex + 1)) + '</h3>' +
+        '<h3>' + (isWordUnit ? alphabet.name + ' – nya ord efter grupp ' + getCurrentLearnWordGroup().afterGroup : alphabet.name + ' Grupp ' + (learn.groupIndex + 1)) + '</h3>' +
         (isWordUnit ? '<p class="word-emoji" aria-hidden="true">' + current.emoji + '</p>' : '') +
         '<p class="big-char">' + (isWordUnit ? current.word : current.char) + '</p>' +
         '<p class="romaji">' + (isWordUnit ? current.romaji + ' - ' + current.meaning : current.romaji) + '</p>' +

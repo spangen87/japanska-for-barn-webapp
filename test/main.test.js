@@ -412,7 +412,7 @@ test('practice words shows a notice when no words are unlocked', () => {
   app.click('start-practice');
 
   assert.equal(app.state().practice.session, null);
-  assert.match(app.state().practice.notice, /Klara fler grupper/);
+  assert.match(app.state().practice.notice, /Klara fler hiraganagrupper/);
 });
 
 test('mixed practice words includes unlocked katakana words', () => {
@@ -546,4 +546,38 @@ test('quizzes for small groups never borrow whole words from the rule group', ()
       question.options.forEach((option) => assert.ok(!ruleRomaji.includes(option), option));
     });
   }
+});
+
+test('mixed practice words uses unlocked words from both alphabets', () => {
+  const hiraganaWords = curriculum.hiragana.wordGroups[0].words.map((word) => word.word);
+  const katakanaWords = curriculum.katakana.wordGroups[0].words.map((word) => word.word);
+  const app = loadApp({
+    completedGroups: {
+      hiragana: completedUpTo(curriculum.hiragana.wordGroups[0].afterGroup),
+      katakana: completedUpTo(curriculum.katakana.wordGroups[0].afterGroup, 22)
+    },
+    practice: { alphabet: 'mixed', level: 'words' }
+  });
+  app.click('go-practice');
+  app.click('start-practice');
+
+  const words = app.state().practice.session.questions.map((question) => question.word);
+  assert.ok(words.some((word) => hiraganaWords.includes(word)), words.join(' '));
+  assert.ok(words.some((word) => katakanaWords.includes(word)), words.join(' '));
+});
+
+test('each word group card has its own number', () => {
+  const app = loadApp();
+  app.click('go-learn');
+
+  const numbers = [...app.html().matchAll(/<h4>⭐ Nya ord (\d+)/g)].map((match) => match[1]);
+  assert.equal(new Set(numbers).size, curriculum.hiragana.wordGroups.length);
+});
+
+test('the practice words notice says which alphabet needs more groups', () => {
+  const app = loadApp({ practice: { alphabet: 'katakana', level: 'words' } });
+  app.click('go-practice');
+  app.click('start-practice');
+
+  assert.match(app.state().practice.notice, /katakanagrupper/);
 });
