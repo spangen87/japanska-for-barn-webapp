@@ -709,6 +709,12 @@
     }).join('') + '</div>';
   }
 
+  // Long words get a smaller size so they fit on one line on a phone.
+  function bigCharHtml(text) {
+    const lengthClass = Array.from(text).length > 5 ? ' long' : '';
+    return '<p class="big-char' + lengthClass + '">' + text + '</p>';
+  }
+
   function feedbackHtml(text, answered) {
     const resultClass = answered ? (answered.correct ? ' ok' : ' bad') : '';
     return '<p class="feedback' + resultClass + '">' + (text || '') + '</p>';
@@ -845,7 +851,7 @@
         }
         learnBody =
           '<article class="card"><h3>Mini-quiz (' + (quiz.index + 1) + '/' + quiz.questions.length + ')</h3>' +
-          '<p class="big-char">' + q.promptChar + '</p>' +
+          bigCharHtml(q.promptChar) +
           optionButtonsHtml(q, quiz.answered, 'answer-learn-quiz') +
           feedbackHtml(quiz.feedback, quiz.answered) +
           nextButtonHtml(quiz.answered, 'next-learn-quiz', quiz.index === quiz.questions.length - 1) +
@@ -856,7 +862,7 @@
         '<article class="card learn-focus-card" id="learn-focus">' +
         '<h3>' + (isWordUnit ? alphabet.name + ' – nya ord efter grupp ' + getCurrentLearnWordGroup().afterGroup : alphabet.name + ' Grupp ' + (learn.groupIndex + 1)) + '</h3>' +
         (isWordUnit ? '<p class="word-emoji" aria-hidden="true">' + current.emoji + '</p>' : '') +
-        '<p class="big-char">' + (isWordUnit ? current.word : current.char) + '</p>' +
+        bigCharHtml(isWordUnit ? current.word : current.char) +
         '<p class="romaji">' + (isWordUnit ? current.romaji + ' - ' + current.meaning : current.romaji) + '</p>' +
         (isWordUnit
           ? '<p><strong>Betydelse:</strong> ' + current.meaning + '</p>'
@@ -949,7 +955,7 @@
         sessionBody +=
           '<article class="card"><h3>Fråga ' + (session.index + 1) + '/' + session.questions.length + '</h3>' +
           '<p><strong>' + q.prompt + '</strong></p>' +
-          '<p class="big-char">' + (q.mode === 'char_to_romaji' ? q.char : q.mode === 'word_to_meaning' ? q.word : '🔊') + '</p>' +
+          bigCharHtml(q.mode === 'char_to_romaji' ? q.char : q.mode === 'word_to_meaning' ? q.word : '🔊') +
           (q.mode === 'word_to_meaning' ? '<p class="romaji">' + q.romaji + '</p>' : '') +
           '<div class="action-row" style="grid-template-columns:repeat(2,minmax(0,1fr));">' +
           (q.mode === 'sound_to_char' || q.mode === 'word_to_meaning' ? '<button class="btn-soft" data-action="repeat-sound">🔊 Spela igen</button>' : '<div></div>') +
@@ -1013,7 +1019,8 @@
     const alphabet = ALPHABETS[alphabetId];
     return '<div class="char-grid">' + alphabet.chars.map(function (item) {
       const level = state.progress[alphabetId][item.char].level;
-      return '<div class="char-pill"><div class="jp">' + item.char + '</div><div>L' + level + '</div></div>';
+      const lengthClass = Array.from(item.char).length >= 3 ? ' long' : '';
+      return '<div class="char-pill"><div class="jp' + lengthClass + '">' + item.char + '</div><div>L' + level + '</div></div>';
     }).join('') + '</div>';
   }
 

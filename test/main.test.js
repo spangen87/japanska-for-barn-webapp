@@ -581,3 +581,20 @@ test('the practice words notice says which alphabet needs more groups', () => {
 
   assert.match(app.state().practice.notice, /katakanagrupper/);
 });
+
+test('long lesson items get a compact style in the progress view', () => {
+  const app = loadApp();
+  app.click('go-progress');
+
+  assert.match(app.html(), /class="jp long"[^>]*>いいえ</);
+  assert.match(app.html(), /class="jp"[^>]*>あ</);
+});
+
+test('long words get a smaller style on the word card', () => {
+  const wordGroupIndex = curriculum.katakana.wordGroups.findIndex((group) => group.words.some((word) => word.word === 'ジェットコースター'));
+  const cardIndex = curriculum.katakana.wordGroups[wordGroupIndex].words.findIndex((word) => word.word === 'ジェットコースター');
+  const app = loadApp({ learn: { alphabet: 'katakana', unit: 'words', wordGroupIndex: wordGroupIndex, cardIndex: cardIndex } });
+  app.click('go-learn');
+
+  assert.match(app.html(), /class="big-char long"[^>]*>ジェットコースター</);
+});

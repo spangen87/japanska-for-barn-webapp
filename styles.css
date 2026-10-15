@@ -254,6 +254,11 @@ button {
   text-align: center;
   margin: 6px 0;
   line-height: 1;
+  word-break: keep-all;
+}
+
+.big-char.long {
+  font-size: clamp(1.8rem, 8.5vw, 3.6rem);
 }
 
 .romaji {
@@ -422,6 +427,12 @@ button {
   font-family: var(--jp-font);
   font-size: 1.4rem;
   line-height: 1;
+  white-space: nowrap;
+}
+
+.char-pill .jp.long {
+  font-size: 0.95rem;
+  line-height: 1.47;
 }
 
 .badge-grid {
