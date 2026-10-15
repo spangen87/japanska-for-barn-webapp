@@ -598,3 +598,86 @@ test('long words get a smaller style on the word card', () => {
 
   assert.match(app.html(), /class="big-char long"[^>]*>ジェットコースター</);
 });
+
+function failLearnQuiz(app) {
+  let quiz = app.state().learn.quiz;
+  while (!quiz.done) {
+    const question = quiz.questions[quiz.index];
+    app.click('answer-learn-quiz', { value: question.options.find((option) => option !== question.answer) });
+    app.click('next-learn-quiz');
+    quiz = app.state().learn.quiz;
+  }
+}
+
+test('passing a group quiz offers a button that opens the next group', () => {
+  const app = loadApp();
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+  finishLearnQuiz(app);
+  assert.match(app.html(), /data-action="next-group"/);
+
+  app.click('next-group');
+  assert.equal(app.state().learn.groupIndex, 1);
+  assert.equal(app.state().learn.quiz, null);
+});
+
+test('failing a group quiz offers to try again', () => {
+  const app = loadApp();
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+  failLearnQuiz(app);
+  assert.doesNotMatch(app.html(), /data-action="next-group"/);
+
+  app.click('retry-learn-quiz');
+  assert.equal(app.state().learn.quiz.index, 0);
+  assert.equal(app.state().learn.quiz.done, false);
+});
+
+test('quizzes for groups with fewer than five items ask each item twice', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 7, cardIndex: 0 } });
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+
+  assert.equal(app.state().learn.quiz.questions.length, 6);
+});
+
+test('the word card shows the meaning only once', () => {
+  const word = curriculum.hiragana.wordGroups[0].words[0];
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'words', wordGroupIndex: 0, cardIndex: 0 } });
+  app.click('go-learn');
+
+  assert.equal(app.html().split(word.meaning).length - 1, 1);
+});
+
+test('practice shows the level buttons only once', () => {
+  const app = loadApp();
+  app.click('go-practice');
+
+  assert.equal(app.html().split('data-action="set-practice-level" data-value="words"').length - 1, 1);
+});
+
+test('showing or hiding the group list does not replay the sound', () => {
+  const app = loadApp();
+  app.click('go-learn');
+  const spokenBefore = app.spoken.length;
+  app.click('toggle-groups');
+  app.click('toggle-groups');
+
+  assert.equal(app.spoken.length, spokenBefore);
+});
+
+test('resetting progress clears completed groups once the parent confirms', () => {
+  const app = loadApp({ completedGroups: { hiragana: completedUpTo(3) } });
+  app.click('go-progress');
+  app.click('reset-progress');
+
+  assert.equal(app.state().completedGroups.hiragana.some(Boolean), false);
+});
+
+test('progress is kept when the parent cancels the reset', () => {
+  const app = loadApp({ completedGroups: { hiragana: completedUpTo(3) } }, null, { confirm: false });
+  app.click('go-progress');
+  app.click('reset-progress');
+
+  assert.equal(app.state().completedGroups.hiragana[0], true);
+});

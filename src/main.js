@@ -4,6 +4,7 @@
   const STORAGE_KEY = 'japanskaBarnApp.v2';
   const SESSION_QUESTION_COUNT = 10;
   let pendingLearnFocus = false;
+  let lastSpokenCard = '';
 
   const MNEMONIC_OVERRIDES = {
     'あ': "Ser ut som ett A med snirkel, tänk 'aah!'.",
@@ -295,7 +296,9 @@
           return !item.isRuleExample;
         });
 
-      questions = groupChars.map(function (charObj) {
+      // Small groups ask each item twice, so one slip does not fail the quiz.
+      const quizChars = groupChars.length < 5 ? groupChars.concat(groupChars) : groupChars;
+      questions = quizChars.map(function (charObj) {
         const options = buildOptions(optionPool, charObj.romaji, function (item) {
           return item.romaji;
         });
@@ -779,9 +782,12 @@
       state.seenChars[learn.alphabet][current.char] = true;
     }
 
-    if (!learn.quiz) {
+    // Speak a card when it is first shown, not on every redraw (such as hiding the group list).
+    const cardKey = [learn.alphabet, learn.unit, learn.groupIndex, learn.wordGroupIndex, learn.cardIndex].join('|');
+    if (!learn.quiz && cardKey !== lastSpokenCard) {
       speak(isWordUnit ? current.word : current.char);
     }
+    lastSpokenCard = learn.quiz ? '' : cardKey;
 
     const groupCards = alphabet.groups
       .map(function (items, index) {
@@ -843,7 +849,7 @@
           '<p class="muted">' + (isWordQuiz
             ? 'Minst 80% krävs för att klara orddelen.'
             : 'Minst 80% krävs för att låsa upp nästa grupp.') + '</p>' +
-          '<button class="btn-main" data-action="close-learn-quiz">Tillbaka till gruppen</button></article>';
+          quizResultButtonsHtml(pct >= 80, isWordQuiz) + '</article>';
       } else {
         const q = quiz.questions[quiz.index];
         if (quiz.answered) {
@@ -863,7 +869,7 @@
         '<h3>' + (isWordUnit ? alphabet.name + ' – nya ord efter grupp ' + getCurrentLearnWordGroup().afterGroup : alphabet.name + ' Grupp ' + (learn.groupIndex + 1)) + '</h3>' +
         (isWordUnit ? '<p class="word-emoji" aria-hidden="true">' + current.emoji + '</p>' : '') +
         bigCharHtml(isWordUnit ? current.word : current.char) +
-        '<p class="romaji">' + (isWordUnit ? current.romaji + ' - ' + current.meaning : current.romaji) + '</p>' +
+        '<p class="romaji">' + current.romaji + '</p>' +
         (isWordUnit
           ? '<p><strong>Betydelse:</strong> ' + current.meaning + '</p>'
           : '<p><strong>Minnesknep:</strong> ' + current.mnemonic + '</p>') +
@@ -890,24 +896,19 @@
       '</section>';
   }
 
+  function quizResultButtonsHtml(passed, isWordQuiz) {
+    const learn = state.learn;
+    const hasNextGroup = !isWordQuiz && learn.groupIndex + 1 < ALPHABETS[learn.alphabet].groups.length;
+    const primary = passed
+      ? (hasNextGroup ? '<button class="btn-main" data-action="next-group">Nästa grupp →</button>' : '')
+      : '<button class="btn-main" data-action="retry-learn-quiz">Försök igen</button>';
+    return '<div class="quiz-result-actions">' + primary +
+      '<button class="btn-soft" data-action="close-learn-quiz">Tillbaka till gruppen</button></div>';
+  }
+
   function renderPractice() {
     const practice = state.practice;
     const isWordLevel = practice.level === 'words';
-    const quickModeMenu =
-      '<article class="card practice-quick-menu">' +
-      '<div class="practice-quick-row">' +
-      '<span class="muted"><strong>Snabbval nivå:</strong></span>' +
-      '<button class="btn-soft toggle-btn ' + (practice.level === 'chars' ? 'active' : '') + '" data-action="set-practice-level" data-value="chars">Tecken</button>' +
-      '<button class="btn-soft toggle-btn ' + (practice.level === 'words' ? 'active' : '') + '" data-action="set-practice-level" data-value="words">Enkla ord</button>' +
-      '</div>' +
-      (isWordLevel
-        ? ''
-        : '<div class="practice-quick-row">' +
-      '<span class="muted"><strong>Snabbval spelläge:</strong></span>' +
-      '<button class="btn-soft toggle-btn ' + (practice.mode === 'char_to_romaji' ? 'active' : '') + '" data-action="set-practice-mode" data-value="char_to_romaji">Tecken → Ljud</button>' +
-      '<button class="btn-soft toggle-btn ' + (practice.mode === 'sound_to_char' ? 'active' : '') + '" data-action="set-practice-mode" data-value="sound_to_char">Ljud → Tecken</button>' +
-      '</div>') +
-      '</article>';
 
     let sessionBody =
       '<article class="card"><h3>Öva</h3><p>' + (isWordLevel
@@ -970,7 +971,6 @@
     app.innerHTML =
       topBarHtml() +
       '<section class="practice-layout">' +
-      quickModeMenu +
       '<article class="card"><button class="btn-soft" data-action="go-home">Hem</button></article>' +
       sessionBody +
       '</section>';
@@ -1008,6 +1008,8 @@
       '<article class="card"><h3>Badges</h3><div class="badge-grid">' + badges + '</div></article>' +
       '<article class="card"><h3>Hiragana nivåer</h3>' + hiraGrid + '</article>' +
       '<article class="card"><h3>Katakana nivåer</h3>' + kataGrid + '</article>' +
+      '<article class="card"><h3>För föräldrar</h3><p class="muted">Börja om från början, till exempel när ett syskon ska använda appen.</p>' +
+      '<button class="btn-soft" data-action="reset-progress">Nollställ framsteg</button></article>' +
       '</section>';
   }
 
@@ -1110,6 +1112,22 @@
       answerLearnQuiz(value);
     } else if (action === 'next-learn-quiz') {
       nextLearnQuizQuestion();
+    } else if (action === 'next-group') {
+      state.learn.unit = 'group';
+      state.learn.groupIndex = Math.min(state.learn.groupIndex + 1, ALPHABETS[state.learn.alphabet].groups.length - 1);
+      state.learn.cardIndex = 0;
+      state.learn.quiz = null;
+      pendingLearnFocus = true;
+      render();
+    } else if (action === 'retry-learn-quiz') {
+      startLearnQuiz();
+      render();
+    } else if (action === 'reset-progress') {
+      if (window.confirm('Vill du nollställa alla framsteg? Det går inte att ångra.')) {
+        state = createInitialState();
+        state.view = 'progress';
+        render();
+      }
     } else if (action === 'close-learn-quiz') {
       state.learn.quiz = null;
       render();
