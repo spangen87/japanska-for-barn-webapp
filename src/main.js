@@ -182,7 +182,11 @@
   }
 
   function saveState() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (error) {
+      // Storage can be blocked or full (private mode, school devices); the app still works without saving.
+    }
   }
 
   function markProgressUpdated() {
@@ -708,19 +712,28 @@
       } else if (answered && option === answered.value) {
         resultClass = ' wrong';
       }
-      return '<button class="btn-soft option-btn' + resultClass + '" data-action="' + action + '" data-value="' + option + '"' + (answered ? ' disabled' : '') + '>' + option + '</button>';
+      return '<button class="btn-soft option-btn' + resultClass + '" data-action="' + action + '" data-value="' + option + '"' + langAttr(option) + (answered ? ' disabled' : '') + '>' + option + '</button>';
     }).join('') + '</div>';
   }
 
   // Long words get a smaller size so they fit on one line on a phone.
   function bigCharHtml(text) {
     const lengthClass = Array.from(text).length > 5 ? ' long' : '';
-    return '<p class="big-char' + lengthClass + '">' + text + '</p>';
+    return '<p class="big-char' + lengthClass + '"' + langAttr(text) + '>' + text + '</p>';
+  }
+
+  // Marks Japanese text so screen readers and fonts treat it as Japanese.
+  function langAttr(text) {
+    return /[\u3040-\u30ff]/.test(text) ? ' lang="ja"' : '';
+  }
+
+  function toggleButtonHtml(active, action, value, label) {
+    return '<button class="btn-soft toggle-btn ' + (active ? 'active' : '') + '" data-action="' + action + '" data-value="' + value + '" aria-pressed="' + (active ? 'true' : 'false') + '">' + label + '</button>';
   }
 
   function feedbackHtml(text, answered) {
     const resultClass = answered ? (answered.correct ? ' ok' : ' bad') : '';
-    return '<p class="feedback' + resultClass + '">' + (text || '') + '</p>';
+    return '<p class="feedback' + resultClass + '" aria-live="polite">' + (text || '') + '</p>';
   }
 
   function nextButtonHtml(answered, action, isLastQuestion) {
@@ -804,7 +817,7 @@
         return (
           '<div class="group-card ' + (unlocked ? '' : 'locked') + '">' +
           '<h4>Grupp ' + (index + 1) + ' ' + (done ? '✅' : unlocked ? '' : '🔒') + '</h4>' +
-          '<p class="muted" style="font-family:var(--jp-font)">' + sample + '</p>' +
+          '<p class="muted" lang="ja" style="font-family:var(--jp-font)">' + sample + '</p>' +
           '<button class="btn-soft" data-action="pick-group" data-group-index="' + index + '" ' + (unlocked ? '' : 'disabled') + '>Välj</button>' +
           '</div>' +
           wordCards
@@ -818,7 +831,7 @@
       return (
         '<div class="group-card word-group-card ' + (unlocked ? '' : 'locked') + '">' +
         '<h4>⭐ Nya ord ' + (wordIndex + 1) + ' ' + (done ? '✅' : unlocked ? '' : '🔒') + '</h4>' +
-        '<p class="muted" style="font-family:var(--jp-font)">' + wordGroup.words.map(function (item) {
+        '<p class="muted" lang="ja" style="font-family:var(--jp-font)">' + wordGroup.words.map(function (item) {
           return item.word;
         }).join(' ') + '</p>' +
         '<button class="btn-soft" data-action="pick-word-lesson" data-word-group-index="' + wordIndex + '" ' + (unlocked ? '' : 'disabled') + '>Välj</button>' +
@@ -886,8 +899,8 @@
       topBarHtml() +
       '<section class="learn-layout">' +
       '<article class="card"><div class="alphabet-toggle">' +
-      '<button class="btn-soft toggle-btn ' + (learn.alphabet === 'hiragana' ? 'active' : '') + '" data-action="set-learn-alphabet" data-value="hiragana">Hiragana</button>' +
-      '<button class="btn-soft toggle-btn ' + (learn.alphabet === 'katakana' ? 'active' : '') + '" data-action="set-learn-alphabet" data-value="katakana">Katakana</button>' +
+      toggleButtonHtml(learn.alphabet === 'hiragana', 'set-learn-alphabet', 'hiragana', 'Hiragana') +
+      toggleButtonHtml(learn.alphabet === 'katakana', 'set-learn-alphabet', 'katakana', 'Katakana') +
       '<button class="btn-soft" data-action="toggle-groups">' + (learn.groupsCollapsed ? 'Visa grupper' : 'Minimera grupper') + '</button>' +
       '<button class="btn-soft" data-action="go-home">Hem</button>' +
       '</div></article>' +
@@ -915,8 +928,8 @@
         ? 'Träna enkla japanska ord. Sessionen innehåller '
         : 'Välj läge och alfabet. Sessionen innehåller ') + SESSION_QUESTION_COUNT + ' frågor.</p>' +
       '<div class="mode-toggle">' +
-      '<button class="btn-soft toggle-btn ' + (practice.level === 'chars' ? 'active' : '') + '" data-action="set-practice-level" data-value="chars">Tecken</button>' +
-      '<button class="btn-soft toggle-btn ' + (practice.level === 'words' ? 'active' : '') + '" data-action="set-practice-level" data-value="words">Enkla ord</button>' +
+      toggleButtonHtml(practice.level === 'chars', 'set-practice-level', 'chars', 'Tecken') +
+      toggleButtonHtml(practice.level === 'words', 'set-practice-level', 'words', 'Enkla ord') +
       '</div>' +
       (isWordLevel
         ? '<p class="muted" style="margin-top:8px;">Öva orden du har låst upp i Lär dig.</p>'
@@ -925,13 +938,13 @@
         ? ''
         :
       '<div class="mode-toggle">' +
-      '<button class="btn-soft toggle-btn ' + (practice.mode === 'char_to_romaji' ? 'active' : '') + '" data-action="set-practice-mode" data-value="char_to_romaji">Tecken → Ljud</button>' +
-      '<button class="btn-soft toggle-btn ' + (practice.mode === 'sound_to_char' ? 'active' : '') + '" data-action="set-practice-mode" data-value="sound_to_char">Ljud → Tecken</button>' +
+      toggleButtonHtml(practice.mode === 'char_to_romaji', 'set-practice-mode', 'char_to_romaji', 'Tecken → Ljud') +
+      toggleButtonHtml(practice.mode === 'sound_to_char', 'set-practice-mode', 'sound_to_char', 'Ljud → Tecken') +
       '</div>') +
       '<div class="alphabet-toggle" style="margin-top:8px;">' +
-      '<button class="btn-soft toggle-btn ' + (practice.alphabet === 'hiragana' ? 'active' : '') + '" data-action="set-practice-alphabet" data-value="hiragana">Hiragana</button>' +
-      '<button class="btn-soft toggle-btn ' + (practice.alphabet === 'katakana' ? 'active' : '') + '" data-action="set-practice-alphabet" data-value="katakana">Katakana</button>' +
-      '<button class="btn-soft toggle-btn ' + (practice.alphabet === 'mixed' ? 'active' : '') + '" data-action="set-practice-alphabet" data-value="mixed">Blandat</button>' +
+      toggleButtonHtml(practice.alphabet === 'hiragana', 'set-practice-alphabet', 'hiragana', 'Hiragana') +
+      toggleButtonHtml(practice.alphabet === 'katakana', 'set-practice-alphabet', 'katakana', 'Katakana') +
+      toggleButtonHtml(practice.alphabet === 'mixed', 'set-practice-alphabet', 'mixed', 'Blandat') +
       '</div>' +
       (practice.notice ? '<p class="feedback bad">' + practice.notice + '</p>' : '') +
       '<div style="margin-top:10px;"><button class="btn-main" data-action="start-practice">Starta session</button></div></article>';
@@ -1022,7 +1035,7 @@
     return '<div class="char-grid">' + alphabet.chars.map(function (item) {
       const level = state.progress[alphabetId][item.char].level;
       const lengthClass = Array.from(item.char).length >= 3 ? ' long' : '';
-      return '<div class="char-pill"><div class="jp' + lengthClass + '">' + item.char + '</div><div>L' + level + '</div></div>';
+      return '<div class="char-pill"><div class="jp' + lengthClass + '" lang="ja">' + item.char + '</div><div>L' + level + '</div></div>';
     }).join('') + '</div>';
   }
 
@@ -1038,6 +1051,31 @@
     }
 
     return '<div class="calendar">' + days.join('') + '</div>';
+  }
+
+  // Where keyboard focus goes after an action, since every render replaces the buttons.
+  const FOCUS_AFTER = {
+    'answer-practice': ['[data-action="next-practice"]'],
+    'answer-learn-quiz': ['[data-action="next-learn-quiz"]'],
+    'next-practice': ['[data-action="answer-practice"]', '[data-action="start-practice"]'],
+    'next-learn-quiz': ['[data-action="answer-learn-quiz"]', '[data-action="next-group"]', '[data-action="retry-learn-quiz"]'],
+    'start-practice': ['[data-action="answer-practice"]'],
+    'start-learn-quiz': ['[data-action="answer-learn-quiz"]'],
+    'retry-learn-quiz': ['[data-action="answer-learn-quiz"]']
+  };
+
+  function restoreFocus(action, value) {
+    const selectors = (FOCUS_AFTER[action] || []).concat(
+      value ? ['[data-action="' + action + '"][data-value="' + value + '"]'] : [],
+      ['[data-action="' + action + '"]']
+    );
+    for (let i = 0; i < selectors.length; i += 1) {
+      const element = app.querySelector(selectors[i]);
+      if (element) {
+        element.focus();
+        return;
+      }
+    }
   }
 
   app.addEventListener('click', function (event) {
@@ -1164,6 +1202,7 @@
         }
       }
     }
+    restoreFocus(action, value);
   });
 
   render();

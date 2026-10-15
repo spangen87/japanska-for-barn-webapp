@@ -681,3 +681,47 @@ test('progress is kept when the parent cancels the reset', () => {
 
   assert.equal(app.state().completedGroups.hiragana[0], true);
 });
+
+test('after answering, keyboard focus moves to the next button', () => {
+  const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
+  app.click('go-practice');
+  app.click('start-practice');
+  const question = app.state().practice.session.questions[0];
+  app.click('answer-practice', { value: question.answer });
+
+  assert.equal(app.focused.at(-1), '[data-action="next-practice"]');
+});
+
+test('only the feedback line is announced to screen readers', () => {
+  const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
+  app.click('go-practice');
+  app.click('start-practice');
+
+  assert.match(app.html(), /<p class="feedback[^"]*" aria-live="polite">/);
+});
+
+test('japanese text is marked with lang="ja"', () => {
+  const app = loadApp({ ...SEEN_FIRST_HIRAGANA_ROW, practice: { alphabet: 'hiragana', level: 'chars', mode: 'sound_to_char' } });
+  app.click('go-learn');
+  assert.match(app.html(), /class="big-char" lang="ja">あ</);
+
+  app.click('go-practice');
+  app.click('start-practice');
+  assert.match(app.html(), /class="btn-soft option-btn"[^>]*lang="ja"/);
+});
+
+test('the app keeps working when saving progress fails', () => {
+  const app = loadApp(null, null, { failStorageWrites: true });
+  app.click('start-game');
+  app.click('go-learn');
+
+  assert.match(app.html(), /Grupp 1/);
+});
+
+test('toggle buttons tell screen readers which one is selected', () => {
+  const app = loadApp();
+  app.click('go-learn');
+
+  assert.match(app.html(), /data-action="set-learn-alphabet" data-value="hiragana" aria-pressed="true"/);
+  assert.match(app.html(), /data-action="set-learn-alphabet" data-value="katakana" aria-pressed="false"/);
+});
