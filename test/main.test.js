@@ -979,3 +979,47 @@ test('single kana questions never offer whole rule-group words as options', () =
       .forEach((question) => question.options.forEach((option) => assert.ok(!ruleRomaji.includes(option), option)));
   }
 });
+
+const UNLOCK_FIRST_TWO_HIRAGANA_GROUPS = {
+  completedGroups: { hiragana: completedUpTo(2) },
+  practice: { alphabet: 'hiragana', level: 'words' }
+};
+
+test('answering a word question updates that word\'s progress', () => {
+  const app = loadApp(UNLOCK_FIRST_TWO_HIRAGANA_GROUPS);
+  app.click('go-practice');
+  app.click('start-practice');
+  const question = app.state().practice.session.questions[0];
+  app.click('answer-practice', { value: question.answer });
+
+  assert.equal(app.state().wordProgress[question.word].timesCorrect, 1);
+});
+
+test('word practice puts weak words first more often', () => {
+  const unlocked = curriculum.hiragana.wordGroups.filter((group) => group.afterGroup <= 2).flatMap((group) => group.words);
+  const weakWord = unlocked[0].word;
+  const wordProgress = {};
+  unlocked.forEach((word) => {
+    wordProgress[word.word] = { level: 5, timesCorrect: 9, timesWrong: 0, nextReview: '2999-01-01' };
+  });
+  wordProgress[weakWord] = { level: 1, timesCorrect: 0, timesWrong: 5, nextReview: '2000-01-01' };
+
+  let weakFirst = 0;
+  for (let run = 0; run < 150; run += 1) {
+    const app = loadApp({ ...UNLOCK_FIRST_TWO_HIRAGANA_GROUPS, wordProgress: wordProgress });
+    app.click('go-practice');
+    app.click('start-practice');
+    if (app.state().practice.session.questions[0].word === weakWord) {
+      weakFirst += 1;
+    }
+  }
+  // Without weighting each of the nine words would come first about 11% of the time.
+  assert.ok(weakFirst > 150 * 0.25, String(weakFirst));
+});
+
+test('the progress view shows how many words are learned', () => {
+  const app = loadApp({ wordProgress: { ねこ: { level: 3, timesCorrect: 2, timesWrong: 0, nextReview: '2026-10-25' } } });
+  app.click('go-progress');
+
+  assert.match(app.html(), /Ord på nivå 3\+: 1\/209/);
+});

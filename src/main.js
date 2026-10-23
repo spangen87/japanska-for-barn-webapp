@@ -98,6 +98,7 @@
         lastDate: null,
         history: []
       },
+      wordProgress: {},
       badges: [],
       progressUpdatedAt: null
     };
@@ -114,6 +115,8 @@
       const merged = deepMerge(baseline, parsed);
       merged.view = 'intro';
       merged.learn = clampLearnPosition(merged.learn);
+      // Word progress is keyed by word, so it is copied as-is rather than merged against a baseline.
+      merged.wordProgress = parsed.wordProgress && typeof parsed.wordProgress === 'object' ? parsed.wordProgress : {};
       return merged;
     } catch (error) {
       return createInitialState();
@@ -485,8 +488,27 @@
     });
   }
 
+  function getWordProgress(word) {
+    return state.wordProgress[word] || { level: 1, timesCorrect: 0, timesWrong: 0, nextReview: todayKey() };
+  }
+
+  function applyWordReview(word, correct) {
+    state.wordProgress[word] = core.applyReview(getWordProgress(word), correct, todayKey());
+    markProgressUpdated();
+  }
+
+  // Same weighting as for kana: weak, often-missed and due words come first in each round.
+  function reviewWeight(progress) {
+    const due = progress.nextReview <= todayKey() ? 2 : 0;
+    const weak = Math.max(0, 6 - progress.level);
+    return weak + progress.timesWrong * 0.3 + due + 1;
+  }
+
   function buildWordQuestions(pool, count) {
-    return core.pickRounds(pool, count).map(function (wordObj) {
+    const weightOf = function (wordObj) {
+      return reviewWeight(getWordProgress(wordObj.word));
+    };
+    return core.pickRounds(pool, count, weightOf).map(function (wordObj) {
       return createWordQuestion(wordObj, pool);
     });
   }
@@ -577,10 +599,7 @@
     return core.pickRounds(pool, count, practiceWeight, soundOf);
 
     function practiceWeight(charObj) {
-      const progress = getProgressEntry(charObj.char, alphabetChoice);
-      const due = progress.nextReview <= todayKey() ? 2 : 0;
-      const weak = Math.max(0, 6 - progress.level);
-      return weak + progress.timesWrong * 0.3 + due + 1;
+      return reviewWeight(getProgressEntry(charObj.char, alphabetChoice));
     }
   }
 
@@ -674,6 +693,9 @@
 
     const question = quiz.questions[quiz.index];
     const correct = question.answer === value;
+    if (question.type === 'word') {
+      applyWordReview(question.promptChar, correct);
+    }
     if (correct) {
       quiz.correct += 1;
       quiz.feedback = '✅ Rätt!';
@@ -721,7 +743,9 @@
     const question = session.questions[session.index];
     const correct = value === question.answer;
 
-    if (question.mode !== 'word_to_meaning') {
+    if (question.word) {
+      applyWordReview(question.word, correct);
+    } else {
       applyReview(question.char, correct);
     }
 
@@ -1229,6 +1253,9 @@
       '<article class="card"><h3>Framsteg</h3>' + circles +
       '<p class="muted">Upptäckta: Hiragana ' + getSeenCount('hiragana') + '/' + hiraTotal + ', Katakana ' + getSeenCount('katakana') + '/' + kataTotal + '</p>' +
       '<p class="muted">Mästarnivå (L3+): Hiragana ' + getLearnedCount('hiragana') + '/' + hiraTotal + ', Katakana ' + getLearnedCount('katakana') + '/' + kataTotal + '</p>' +
+      '<p class="muted">Ord på nivå 3+: ' + core.getLearnedCount(state.wordProgress, 3) + '/' + (ALPHABETS.hiragana.wordGroups.concat(ALPHABETS.katakana.wordGroups).reduce(function (sum, group) {
+        return sum + group.words.length;
+      }, 0)) + '</p>' +
       '<p class="muted">Senast uppdaterad: ' + formatUpdatedAt(state.progressUpdatedAt) + '</p></article>' +
       '<article class="card"><h3>Streak-kalender (senaste 28 dagar)</h3>' + calendar + '</article>' +
       '<article class="card"><h3>Badges</h3><div class="badge-grid">' + badges + '</div></article>' +
