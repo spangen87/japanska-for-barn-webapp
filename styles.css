@@ -377,6 +377,11 @@ button {
   line-height: 1.2;
 }
 
+.option-btn.picture-option {
+  font-size: 2.2rem;
+  line-height: 1.2;
+}
+
 .link-btn {
   min-height: 0;
   padding: 0;

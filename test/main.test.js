@@ -408,10 +408,10 @@ test('practice words only uses words from unlocked word groups', () => {
   app.click('start-practice');
 
   const words = unlocked.map((word) => word.word);
-  const meanings = unlocked.map((word) => word.meaning);
+  const answers = unlocked.flatMap((word) => [word.meaning, word.emoji]);
   app.state().practice.session.questions.forEach((question) => {
     assert.ok(words.includes(question.word), question.word);
-    question.options.forEach((option) => assert.ok(meanings.includes(option), option));
+    question.options.forEach((option) => assert.ok(answers.includes(option), option));
   });
 });
 
@@ -1022,4 +1022,54 @@ test('the progress view shows how many words are learned', () => {
   app.click('go-progress');
 
   assert.match(app.html(), /Ord på nivå 3\+: 1\/209/);
+});
+
+const EMOJI_OF = {};
+['hiragana', 'katakana'].forEach((alphabetId) => {
+  curriculum[alphabetId].wordGroups.forEach((group) => group.words.forEach((word) => {
+    EMOJI_OF[word.word] = word.emoji;
+  }));
+});
+const ALL_EMOJI = new Set(Object.values(EMOJI_OF));
+
+test('word practice mixes picture questions with meaning questions', () => {
+  const app = loadApp(UNLOCK_FIRST_TWO_HIRAGANA_GROUPS);
+  app.click('go-practice');
+  app.click('start-practice');
+
+  const questions = app.state().practice.session.questions;
+  const pictures = questions.filter((question) => question.mode === 'word_to_picture');
+  assert.ok(pictures.length >= 4 && pictures.length < questions.length, String(pictures.length));
+  pictures.forEach((question) => {
+    assert.equal(question.answer, EMOJI_OF[question.word]);
+    question.options.forEach((option) => assert.ok(ALL_EMOJI.has(option), option));
+  });
+});
+
+test('the learn word quiz includes picture questions', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'words', wordGroupIndex: 0, cardIndex: 0 } });
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+
+  const pictures = app.state().learn.quiz.questions.filter((question) => question.kind === 'picture');
+  assert.ok(pictures.length >= 1);
+  pictures.forEach((question) => assert.equal(question.answer, EMOJI_OF[question.promptChar]));
+});
+
+test('picture answers count towards the word\'s progress', () => {
+  const app = loadApp(UNLOCK_FIRST_TWO_HIRAGANA_GROUPS);
+  app.click('go-practice');
+  app.click('start-practice');
+  let session = app.state().practice.session;
+  while (session.questions[session.index].mode !== 'word_to_picture') {
+    app.click('answer-practice', { value: session.questions[session.index].answer });
+    app.click('next-practice');
+    session = app.state().practice.session;
+  }
+  const question = session.questions[session.index];
+  const before = (app.state().wordProgress[question.word] || { timesCorrect: 0 }).timesCorrect;
+  app.click('answer-practice', { value: question.answer });
+
+  assert.equal(app.state().wordProgress[question.word].timesCorrect, before + 1);
+  assert.match(app.html(), /option-btn picture-option/);
 });

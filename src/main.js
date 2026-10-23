@@ -320,15 +320,15 @@
         .flatMap(function (group) {
           return group.words;
         });
-      questions = shuffled(words).map(function (wordObj) {
-        const options = buildOptions(wordOptionPool(wordObj.meaning, words, earlierWords), wordObj.meaning, function (item) {
-          return item.meaning;
-        });
+      questions = shuffled(words).map(function (wordObj, index) {
+        // Every other question asks for the picture instead of the Swedish meaning.
+        const pickAnswer = index % 2 === 1 ? pickEmoji : pickMeaning;
         return {
           promptChar: wordObj.word,
-          answer: wordObj.meaning,
-          options: options,
-          type: 'word'
+          answer: pickAnswer(wordObj),
+          options: buildOptions(wordOptionPool(wordObj.meaning, words, earlierWords), pickAnswer(wordObj), pickAnswer),
+          type: 'word',
+          kind: index % 2 === 1 ? 'picture' : 'meaning'
         };
       });
     } else {
@@ -508,22 +508,28 @@
     const weightOf = function (wordObj) {
       return reviewWeight(getWordProgress(wordObj.word));
     };
-    return core.pickRounds(pool, count, weightOf).map(function (wordObj) {
-      return createWordQuestion(wordObj, pool);
+    return core.pickRounds(pool, count, weightOf).map(function (wordObj, index) {
+      return createWordQuestion(wordObj, pool, index % 2 === 1);
     });
   }
 
-  function createWordQuestion(wordObj, pool) {
-    const options = buildOptions(wordOptionPool(wordObj.meaning, pool, pool), wordObj.meaning, function (item) {
-      return item.meaning;
-    });
+  function pickMeaning(item) {
+    return item.meaning;
+  }
+
+  function pickEmoji(item) {
+    return item.emoji;
+  }
+
+  function createWordQuestion(wordObj, pool, asPicture) {
+    const pickAnswer = asPicture ? pickEmoji : pickMeaning;
     return {
       word: wordObj.word,
       romaji: wordObj.romaji,
-      prompt: 'Vad betyder ordet?',
-      answer: wordObj.meaning,
-      options: options,
-      mode: 'word_to_meaning'
+      prompt: asPicture ? 'Vilken bild passar ordet?' : 'Vad betyder ordet?',
+      answer: pickAnswer(wordObj),
+      options: buildOptions(wordOptionPool(wordObj.meaning, pool, pool), pickAnswer(wordObj), pickAnswer),
+      mode: asPicture ? 'word_to_picture' : 'word_to_meaning'
     };
   }
 
@@ -891,7 +897,8 @@
       } else if (answered && option === answered.value) {
         resultClass = ' wrong';
       }
-      return '<button class="btn-soft option-btn' + resultClass + '" data-action="' + action + '" data-value="' + option + '"' + langAttr(option) + (answered ? ' disabled' : '') + '>' + option + '</button>';
+      const pictureClass = question.mode === 'word_to_picture' || question.kind === 'picture' ? ' picture-option' : '';
+      return '<button class="btn-soft option-btn' + pictureClass + resultClass + '" data-action="' + action + '" data-value="' + option + '"' + langAttr(option) + (answered ? ' disabled' : '') + '>' + option + '</button>';
     }).join('') + '</div>';
   }
 
@@ -1193,7 +1200,7 @@
         // Speak once per question (and once more after answering), not on every redraw.
         const questionKey = session.index + '|' + Boolean(session.answered);
         if (questionKey !== lastSpokenQuestion) {
-          if (q.mode === 'word_to_meaning') {
+          if (q.word) {
             speak(q.word);
           } else if (q.mode === 'sound_to_char' || q.mode === 'lookalike' || session.answered) {
             speak(q.char);
@@ -1204,9 +1211,9 @@
         sessionBody +=
           '<article class="card"><h3>Fråga ' + (session.index + 1) + '/' + session.questions.length + '</h3>' +
           '<p><strong>' + q.prompt + '</strong></p>' +
-          bigCharHtml(q.mode === 'char_to_romaji' ? q.char : q.mode === 'word_to_meaning' ? q.word : q.mode === 'lookalike' ? q.romaji : '🔊') +
+          bigCharHtml(q.mode === 'char_to_romaji' ? q.char : q.word ? q.word : q.mode === 'lookalike' ? q.romaji : '🔊') +
           // Romaji stays hidden until the answer, so the child has to read the kana.
-          (q.mode === 'word_to_meaning' && session.answered ? '<p class="romaji">' + q.romaji + '</p>' : '') +
+          (q.word && session.answered ? '<p class="romaji">' + q.romaji + '</p>' : '') +
           '<div class="action-row" style="grid-template-columns:repeat(2,minmax(0,1fr));">' +
           (q.mode !== 'char_to_romaji' ? '<button class="btn-soft" data-action="repeat-sound">🔊 Spela igen</button>' : '<div></div>') +
           '<div></div></div>' +
@@ -1459,11 +1466,7 @@
       const session = state.practice.session;
       if (session && !session.done) {
         const q = session.questions[session.index];
-        if (q.mode === 'word_to_meaning') {
-          speak(q.word);
-        } else {
-          speak(q.char);
-        }
+        speak(q.word || q.char);
       }
     }
     restoreFocus(action, value);
