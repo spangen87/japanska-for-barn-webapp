@@ -1073,3 +1073,64 @@ test('picture answers count towards the word\'s progress', () => {
   assert.equal(app.state().wordProgress[question.word].timesCorrect, before + 1);
   assert.match(app.html(), /option-btn picture-option/);
 });
+
+test('finishing the first katakana group earns Katakana-nybörjare', () => {
+  const app = loadApp({ learn: { alphabet: 'katakana', unit: 'group', groupIndex: 0, cardIndex: 0 } });
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+  finishLearnQuiz(app);
+
+  assert.ok(app.state().badges.includes('katakana_beginner'));
+  assert.match(app.html(), /Ny badge/);
+});
+
+test('Snabb som blixten needs 20 correct in a row, across sessions', () => {
+  const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
+  app.click('go-practice');
+  app.click('start-practice');
+  finishPracticeSession(app);
+  assert.ok(!app.state().badges.includes('fast_lightning'));
+
+  app.click('start-practice');
+  finishPracticeSession(app);
+  assert.ok(app.state().badges.includes('fast_lightning'));
+});
+
+test('passing a word quiz earns Första orden', () => {
+  const app = loadApp({
+    completedGroups: { hiragana: completedUpTo(1) },
+    learn: { alphabet: 'hiragana', unit: 'words', wordGroupIndex: 0, cardIndex: 0 }
+  });
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+  finishLearnQuiz(app);
+
+  assert.ok(app.state().badges.includes('first_words'));
+});
+
+test('practising three days in a row earns the streak badge', () => {
+  const yesterday = localDateKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  const app = loadApp({ ...SEEN_FIRST_HIRAGANA_ROW, streak: { current: 2, best: 2, lastDate: yesterday, history: [yesterday] } });
+  app.click('go-practice');
+  app.click('start-practice');
+  finishPracticeSession(app);
+
+  assert.ok(app.state().badges.includes('streak_3'));
+});
+
+test('the 50th correct answer earns its badge', () => {
+  const app = loadApp({ ...SEEN_FIRST_HIRAGANA_ROW, stats: { totalCorrect: 45, runStreak: 0 } });
+  app.click('go-practice');
+  app.click('start-practice');
+  finishPracticeSession(app);
+
+  assert.equal(app.state().stats.totalCorrect, 55);
+  assert.ok(app.state().badges.includes('correct_50'));
+});
+
+test('the progress view lists all the badges', () => {
+  const app = loadApp();
+  app.click('go-progress');
+
+  assert.ok((app.html().match(/class="badge-item/g) || []).length >= 13);
+});

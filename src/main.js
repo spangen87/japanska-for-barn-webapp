@@ -8,9 +8,18 @@
   let lastSpokenQuestion = '';
 
   const BADGES = [
-    { id: 'hiragana_beginner', icon: '🌸', name: 'Hiragana-nybörjare', rule: 'Lås upp första hiragana-gruppen.' },
-    { id: 'hiragana_master', icon: '🗻', name: 'Hiragana-mästare', rule: 'Alla hiragana på nivå 3+.' },
-    { id: 'fast_lightning', icon: '⚡', name: 'Snabb som blixten', rule: '10 rätt i rad i en session.' },
+    { id: 'hiragana_beginner', icon: '🌸', name: 'Hiragana-nybörjare', rule: 'Klara första hiragana-gruppen.' },
+    { id: 'katakana_beginner', icon: '🎏', name: 'Katakana-nybörjare', rule: 'Klara första katakana-gruppen.' },
+    { id: 'hiragana_master', icon: '🗻', name: 'Hiragana-mästare', rule: 'Alla 46 grundtecken i hiragana på nivå 3+.' },
+    { id: 'katakana_master', icon: '🏯', name: 'Katakana-mästare', rule: 'Alla 46 grundtecken i katakana på nivå 3+.' },
+    { id: 'first_words', icon: '📗', name: 'Första orden', rule: 'Klara en ordgrupp.' },
+    { id: 'word_collector', icon: '📚', name: 'Ordsamlare', rule: 'Klara 10 ordgrupper.' },
+    { id: 'word_master', icon: '🎓', name: 'Ordmästare', rule: 'Klara alla ordgrupper i båda alfabeten.' },
+    { id: 'streak_3', icon: '🔥', name: 'Tre dagar i rad', rule: 'Öva tre dagar i rad.' },
+    { id: 'streak_7', icon: '🌟', name: 'En hel vecka', rule: 'Öva sju dagar i rad.' },
+    { id: 'correct_50', icon: '🥉', name: '50 rätt', rule: '50 rätta svar totalt.' },
+    { id: 'correct_200', icon: '🥇', name: '200 rätt', rule: '200 rätta svar totalt.' },
+    { id: 'fast_lightning', icon: '⚡', name: 'Snabb som blixten', rule: '20 rätt i rad, även över flera sessioner.' },
     { id: 'perfect_session', icon: '🎯', name: 'Perfekt session', rule: '100% rätt i en övningssession.' }
   ];
 
@@ -99,6 +108,10 @@
         history: []
       },
       wordProgress: {},
+      stats: {
+        totalCorrect: 0,
+        runStreak: 0
+      },
       badges: [],
       progressUpdatedAt: null
     };
@@ -702,6 +715,7 @@
     if (question.type === 'word') {
       applyWordReview(question.promptChar, correct);
     }
+    recordAnswer(correct);
     if (correct) {
       quiz.correct += 1;
       quiz.feedback = '✅ Rätt!';
@@ -733,7 +747,7 @@
         }
       }
       updateStreak();
-      unlockBadges();
+      quiz.newBadges = unlockBadges();
       markProgressUpdated();
     }
 
@@ -754,6 +768,7 @@
     } else {
       applyReview(question.char, correct);
     }
+    recordAnswer(correct);
 
     if (correct) {
       session.correct += 1;
@@ -781,7 +796,7 @@
     if (session.index >= session.questions.length) {
       session.done = true;
       updateStreak();
-      unlockBadges();
+      session.newBadges = unlockBadges();
     }
 
     render();
@@ -799,32 +814,65 @@
     markProgressUpdated();
   }
 
-  function unlockBadges() {
-    if (state.completedGroups.hiragana[0]) {
-      addBadge('hiragana_beginner');
-    }
-
-    const allHiraganaStrong = Object.keys(state.progress.hiragana).every(function (char) {
-      return state.progress.hiragana[char].level >= 3;
-    });
-    if (allHiraganaStrong) {
-      addBadge('hiragana_master');
-    }
-
-    const session = state.practice.session;
-    if (session && session.done && session.bestStreak >= 10) {
-      addBadge('fast_lightning');
-    }
-
-    if (session && session.done && session.correct === session.questions.length) {
-      addBadge('perfect_session');
+  // Counts every answer for the total and the run of correct answers that spans sessions.
+  function recordAnswer(correct) {
+    if (correct) {
+      state.stats.totalCorrect += 1;
+      state.stats.runStreak += 1;
+    } else {
+      state.stats.runStreak = 0;
     }
   }
 
-  function addBadge(id) {
-    if (!state.badges.includes(id)) {
-      state.badges.push(id);
+  function baseKanaStrong(alphabetId) {
+    return ALPHABETS[alphabetId].groups.slice(0, 10).flat().every(function (item) {
+      return state.progress[alphabetId][item.char].level >= 3;
+    });
+  }
+
+  // Returns the ids of badges earned by this call, so the result card can celebrate them.
+  function unlockBadges() {
+    const before = state.badges.slice();
+    const completedWordGroups = ['hiragana', 'katakana'].reduce(function (sum, alphabetId) {
+      return sum + state.completedWordLessons[alphabetId].filter(Boolean).length;
+    }, 0);
+    const totalWordGroups = ALPHABETS.hiragana.wordGroups.length + ALPHABETS.katakana.wordGroups.length;
+    const session = state.practice.session;
+    const checks = {
+      hiragana_beginner: Boolean(state.completedGroups.hiragana[0]),
+      katakana_beginner: Boolean(state.completedGroups.katakana[0]),
+      hiragana_master: baseKanaStrong('hiragana'),
+      katakana_master: baseKanaStrong('katakana'),
+      first_words: completedWordGroups >= 1,
+      word_collector: completedWordGroups >= 10,
+      word_master: completedWordGroups >= totalWordGroups,
+      streak_3: state.streak.best >= 3,
+      streak_7: state.streak.best >= 7,
+      correct_50: state.stats.totalCorrect >= 50,
+      correct_200: state.stats.totalCorrect >= 200,
+      fast_lightning: state.stats.runStreak >= 20,
+      perfect_session: Boolean(session && session.done && session.correct === session.questions.length)
+    };
+    Object.keys(checks).forEach(function (id) {
+      if (checks[id] && !state.badges.includes(id)) {
+        state.badges.push(id);
+      }
+    });
+    return state.badges.filter(function (id) {
+      return !before.includes(id);
+    });
+  }
+
+  function newBadgesHtml(ids) {
+    if (!ids || !ids.length) {
+      return '';
     }
+    return '<p class="new-badges">🏅 Ny badge: ' + ids.map(function (id) {
+      const badge = BADGES.find(function (candidate) {
+        return candidate.id === id;
+      });
+      return badge ? badge.icon + ' ' + badge.name : id;
+    }).join(', ') + '!</p>';
   }
 
   function goNextLearnCard(step) {
@@ -1058,6 +1106,7 @@
           '<p class="muted">' + (isWordQuiz
             ? 'Minst 80% krävs för att klara orddelen.'
             : 'Minst 80% krävs för att låsa upp nästa grupp.') + '</p>' +
+          newBadgesHtml(quiz.newBadges) +
           quizResultButtonsHtml(pct >= 80, isWordQuiz) + '</article>';
       } else {
         const q = quiz.questions[quiz.index];
@@ -1194,6 +1243,7 @@
           '<article class="card"><h3>Resultat</h3>' +
           '<p><strong>' + pct + '% rätt</strong> (' + session.correct + '/' + session.questions.length + ')</p>' +
           '<p class="muted">Bästa streak i sessionen: ' + session.bestStreak + '</p>' +
+          newBadgesHtml(session.newBadges) +
           '<button class="btn-main" data-action="start-practice" data-value="again">Kör igen</button></article>';
       } else {
         const q = session.questions[session.index];

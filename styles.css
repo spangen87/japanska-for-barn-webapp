@@ -382,6 +382,14 @@ button {
   line-height: 1.2;
 }
 
+.new-badges {
+  font-weight: 700;
+  background: #fff8e8;
+  border: 2px solid #ffd075;
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
 .link-btn {
   min-height: 0;
   padding: 0;
