@@ -51,8 +51,10 @@ function loadApp(savedState, extraStorage, options) {
     },
     speechSynthesis: {
       cancel: () => {},
-      getVoices: () => opts.voices || [],
-      addEventListener: () => {},
+      getVoices: () => context.voices,
+      addEventListener: (type, fn) => {
+        context.voiceListener = fn;
+      },
       speak: (utterance) => {
         spoken.push(utterance.text);
         voicesUsed.push(utterance.voice);
@@ -65,6 +67,7 @@ function loadApp(savedState, extraStorage, options) {
     requestAnimationFrame: () => {}
   };
   context.window = context;
+  context.voices = opts.voices || [];
   vm.createContext(context);
   ['src/app-core.js', 'src/curriculum.js', 'src/main.js'].forEach((file) => {
     vm.runInContext(fs.readFileSync(path.join(ROOT, file), 'utf8'), context, { filename: file });
@@ -75,6 +78,14 @@ function loadApp(savedState, extraStorage, options) {
     voicesUsed: voicesUsed,
     focused: focused,
     announced: () => announcer.textContent,
+    // Simulates the browser finishing loading its voices.
+    voicesChanged: (voices) => {
+      context.voices = voices;
+      vm.runInContext('voiceListener()', context, { timeout: 1000 });
+    },
+    markHtml: () => {
+      appElement.innerHTML = 'MARK';
+    },
     html: () => appElement.innerHTML,
     state: () => JSON.parse(storage[STORAGE_KEY]),
     click: (action, dataset) => {
@@ -1133,4 +1144,64 @@ test('the progress view lists all the badges', () => {
   app.click('go-progress');
 
   assert.ok((app.html().match(/class="badge-item/g) || []).length >= 13);
+});
+
+test('big characters use a handwriting-style font', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'styles.css'), 'utf8');
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+
+  assert.match(html, /family=Klee\+One/);
+  assert.match(css, /\.big-char \{[^}]*font-family: var\(--jp-hand-font\)/);
+});
+
+test('the writing pad shows the current character to trace', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 1, cardIndex: 1 } });
+  app.click('go-learn');
+  assert.doesNotMatch(app.html(), /writing-pad/);
+
+  app.click('toggle-writing');
+  assert.match(app.html(), /<span class="writing-guide" lang="ja"[^>]*>き<\/span>/);
+  assert.match(app.html(), /<canvas id="writing-canvas"/);
+
+  app.click('toggle-writing');
+  assert.doesNotMatch(app.html(), /writing-pad/);
+});
+
+test('the writing pad follows the card when the child moves on', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 1, cardIndex: 1 } });
+  app.click('go-learn');
+  app.click('toggle-writing');
+  app.click('learn-next');
+
+  assert.match(app.html(), /<span class="writing-guide" lang="ja"[^>]*>く<\/span>/);
+});
+
+test('loading voices does not redraw the page (and wipe the writing pad) when nothing changes', () => {
+  const japanese = [{ lang: 'ja-JP', name: 'Kyoko', localService: true }];
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 1, cardIndex: 1 } }, null, { voices: japanese });
+  app.click('go-learn');
+  app.click('toggle-writing');
+  app.markHtml();
+  app.voicesChanged(japanese);
+
+  assert.equal(app.html(), 'MARK');
+});
+
+test('the voice warning appears once the browser reports no japanese voice', () => {
+  const app = loadApp(null, null, { voices: [] });
+  app.click('start-game');
+  app.click('go-learn');
+  app.voicesChanged([SWEDISH_VOICE]);
+
+  assert.match(app.html(), /Ingen japansk röst/);
+});
+
+test('voices finishing loading do not redraw the page when the warning stays hidden', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 1, cardIndex: 1 } }, null, { voices: [] });
+  app.click('go-learn');
+  app.click('toggle-writing');
+  app.markHtml();
+  app.voicesChanged([{ lang: 'ja-JP', name: 'Kyoko', localService: true }]);
+
+  assert.equal(app.html(), 'MARK');
 });

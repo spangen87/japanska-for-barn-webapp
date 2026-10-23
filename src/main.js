@@ -76,7 +76,8 @@
         wordGroupIndex: 0,
         cardIndex: 0,
         quiz: null,
-        groupsCollapsed: false
+        groupsCollapsed: false,
+        writing: false
       },
       practice: {
         alphabet: 'hiragana',
@@ -900,6 +901,9 @@
     }
 
     announce(currentFeedback());
+    if (state.view === 'learn' && state.learn.writing) {
+      initWritingPad();
+    }
 
     if (pendingLearnFocus && state.view === 'learn') {
       pendingLearnFocus = false;
@@ -1136,12 +1140,15 @@
           : current.tip
             ? current.tip + ' <button class="link-btn" data-action="go-romaji">📖 Så läser du romaji</button>'
             : 'Tryck på ljudknappen flera gånger och härma uttalet.') + '</p>' +
+        (learn.writing ? writingPadHtml(isWordUnit ? current.word : current.char) : '') +
         '<div class="action-row" style="grid-template-columns:repeat(4,minmax(0,1fr));">' +
         '<button class="btn-soft" data-action="learn-prev">← Förra</button>' +
         '<button class="btn-soft" data-action="learn-speak">🔊 Ljud</button>' +
         '<button class="btn-soft" data-action="learn-next">Nästa →</button>' +
         '<button class="btn-main" data-action="start-learn-quiz">' + (isWordUnit ? 'Starta ord-quiz' : 'Starta mini-quiz') + '</button>' +
-        '</div></article>';
+        '</div>' +
+        '<button class="btn-soft" data-action="toggle-writing" style="margin-top:10px;">' + (learn.writing ? 'Stäng skrivrutan' : '✍️ Skriv tecknet') + '</button>' +
+        '</article>';
     }
 
     app.innerHTML =
@@ -1194,6 +1201,55 @@
       }).join('') +
       '</tbody></table><p class="muted">' + guide.outro + '</p></article>' +
       '</section>';
+  }
+
+  // A faint character to trace with a finger or mouse; the canvas is wired up after render.
+  function writingPadHtml(text) {
+    return '<div class="writing-pad"><span class="writing-guide" lang="ja" aria-hidden="true">' + text + '</span>' +
+      '<canvas id="writing-canvas" width="600" height="600" aria-label="Skrivruta: följ tecknet med fingret"></canvas></div>' +
+      '<div class="writing-actions"><button class="btn-soft" data-action="clear-writing">🧽 Sudda</button></div>';
+  }
+
+  function initWritingPad() {
+    const canvas = document.getElementById('writing-canvas');
+    if (!canvas || typeof canvas.getContext !== 'function') {
+      return;
+    }
+    const context = canvas.getContext('2d');
+    context.lineWidth = 28;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.strokeStyle = '#1f2a44';
+    let drawing = false;
+
+    function point(event) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+        y: ((event.clientY - rect.top) / rect.height) * canvas.height
+      };
+    }
+
+    canvas.addEventListener('pointerdown', function (event) {
+      drawing = true;
+      canvas.setPointerCapture(event.pointerId);
+      const start = point(event);
+      context.beginPath();
+      context.moveTo(start.x, start.y);
+    });
+    canvas.addEventListener('pointermove', function (event) {
+      if (!drawing) {
+        return;
+      }
+      const next = point(event);
+      context.lineTo(next.x, next.y);
+      context.stroke();
+    });
+    ['pointerup', 'pointercancel'].forEach(function (type) {
+      canvas.addEventListener(type, function () {
+        drawing = false;
+      });
+    });
   }
 
   function renderPractice() {
@@ -1382,10 +1438,14 @@
 
   // Browsers load their voices after the page; redraw so the voice warning appears or disappears.
   if ('speechSynthesis' in window && typeof window.speechSynthesis.addEventListener === 'function') {
+    // Only redraw when the warning appears or disappears, so a redraw never wipes the writing pad.
+    let warningShown = getVoiceStatus() === 'missing';
     window.speechSynthesis.addEventListener('voiceschanged', function () {
-      if (state.view === 'learn' || state.view === 'practice') {
+      const missing = getVoiceStatus() === 'missing';
+      if (missing !== warningShown && (state.view === 'learn' || state.view === 'practice')) {
         render();
       }
+      warningShown = missing;
     });
   }
 
@@ -1479,6 +1539,11 @@
       state.learn.cardIndex = 0;
       state.learn.quiz = null;
       pendingLearnFocus = true;
+      render();
+    } else if (action === 'toggle-writing') {
+      state.learn.writing = !state.learn.writing;
+      render();
+    } else if (action === 'clear-writing') {
       render();
     } else if (action === 'retry-learn-quiz') {
       startLearnQuiz();
