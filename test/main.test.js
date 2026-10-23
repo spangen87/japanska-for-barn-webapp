@@ -843,3 +843,67 @@ test('a saved quiz is dropped when its saved position no longer exists', () => {
 
   assert.equal(app.state().learn.quiz, null);
 });
+
+test('the home page links to the romaji guide', () => {
+  const app = loadApp();
+  app.click('start-game');
+  assert.match(app.html(), /data-action="go-romaji"/);
+
+  app.click('go-romaji');
+  assert.match(app.html(), /Så läser du romaji/);
+  assert.match(app.html(), /tjugo/);
+});
+
+test('a card with a tricky sound shows its tip and a link to the guide', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 1, cardIndex: 1 } });
+  app.click('go-learn');
+
+  assert.match(app.html(), /Hårt k som i/);
+  assert.match(app.html(), /data-action="go-romaji"/);
+});
+
+test('base kana cards show the new mnemonic', () => {
+  const app = loadApp();
+  app.click('go-learn');
+
+  assert.match(app.html(), /tandläkaren/);
+});
+
+test('look-alike practice only asks about sets the child has seen', () => {
+  const app = loadApp({
+    practice: { alphabet: 'hiragana', level: 'lookalike' },
+    seenChars: { katakana: { シ: true, ツ: true, ソ: true, ン: true } }
+  });
+  app.click('go-practice');
+  app.click('start-practice');
+
+  const allowed = [['シ', 'ツ'], ['ソ', 'ン']];
+  app.state().practice.session.questions.forEach((question) => {
+    const set = allowed.find((pair) => pair.includes(question.answer));
+    assert.ok(set, question.answer);
+    assert.deepEqual(question.options.slice().sort(), set.slice().sort());
+  });
+});
+
+test('look-alike practice needs at least one seen set', () => {
+  const app = loadApp({ practice: { alphabet: 'hiragana', level: 'lookalike' } });
+  app.click('go-practice');
+  app.click('start-practice');
+
+  assert.equal(app.state().practice.session, null);
+  assert.match(app.state().practice.notice, /Lär dig fler tecken/);
+});
+
+test('word practice hides the romaji until the child has answered', () => {
+  const app = loadApp({
+    completedGroups: { hiragana: completedUpTo(2) },
+    practice: { alphabet: 'hiragana', level: 'words' }
+  });
+  app.click('go-practice');
+  app.click('start-practice');
+  const question = app.state().practice.session.questions[0];
+  assert.doesNotMatch(app.html(), new RegExp('<p class="romaji">' + question.romaji + '<'));
+
+  app.click('answer-practice', { value: question.answer });
+  assert.match(app.html(), new RegExp('<p class="romaji">' + question.romaji + '<'));
+});

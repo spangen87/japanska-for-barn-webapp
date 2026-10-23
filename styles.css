@@ -371,6 +371,40 @@ button {
   outline: none;
 }
 
+.option-btn[lang="ja"] {
+  font-family: var(--jp-font);
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+.link-btn {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #1f5fa8;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.romaji-guide {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+}
+
+.romaji-guide th,
+.romaji-guide td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 6px;
+  border-top: 1px solid var(--line);
+}
+
+.romaji-guide tbody th {
+  white-space: nowrap;
+}
+
 .voice-warning {
   background: #fff8e8;
   border-color: #ffd98d;

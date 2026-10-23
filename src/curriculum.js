@@ -359,6 +359,157 @@
     ])
   ];
 
+  // Shape-and-sound mnemonics for the base kana, in Swedish for 8–10-year-olds.
+  const MNEMONICS = {
+    'あ': 'Ett A med en stor snirkel runt om – säg \'aaa!\' som hos tandläkaren.',
+    'い': 'Två istappar som hänger bredvid varandra – i som i is.',
+    'う': 'Ett litet streck överst och en stor böj – någon som håller sig om magen och säger \'oo\'.',
+    'え': 'Ett litet streck överst och en sicksack med svans – en dansare som tar ett steg: e!',
+    'お': 'Nästan som あ, men med en liten prick uppe till höger. Bollen flög iväg – \'Å nej!\'',
+    'か': 'Som ett k med en extra pinne bredvid – ka!',
+    'き': 'Ser ut som en nyckel – på engelska key: ki!',
+    'く': 'Som en fågelnäbb – göken säger ku-ku!',
+    'け': 'En pinne till vänster och en ketchupflaska till höger – ke som i ketchup.',
+    'こ': 'Två korvar på grillen – ko som i korv.',
+    'さ': 'Ett sugrör som sticker ner i ett glas – sa som i saft.',
+    'し': 'Ser ut som en fiskekrok som hänger i vattnet – shi!',
+    'す': 'Ett streck med en ögla i mitten – en surfare som gör en loop: su!',
+    'せ': 'Ett staket med en böjd stolpe – se upp för staketet: se!',
+    'そ': 'Ett sicksackspår som slutar i en båge – sorken springer: so!',
+    'た': 'Ser ut som bokstäverna t och a bredvid varandra – ta!',
+    'ち': 'Som en spegelvänd 5:a – fem chips: chi!',
+    'つ': 'Ser ut som en våg – tsunami börjar med tsu!',
+    'て': 'Som ett T som böjer sig – te!',
+    'と': 'Som en tå med en sticka i – aj, min tå: to!',
+    'な': 'Ett kors och en liten knut – en nalle med armarna i kors: na!',
+    'に': 'En pinne och två korta streck – och ni betyder två på japanska!',
+    'ぬ': 'Snurriga nudlar med en ätpinne – nu som i nudlar.',
+    'ね': 'Som en sovande katt med svansen i en ögla – neko betyder katt: ne!',
+    'の': 'Som en förbudsskylt – no!',
+    'は': 'Ser ut som ett H och ett a som sitter ihop – ha!',
+    'ひ': 'Ser ut som en stor flinande mun – hi hi!',
+    'ふ': 'Fyra små delar som ett berg med snö – Fuji-berget: fu!',
+    'へ': 'Ett hustak – he som i hem.',
+    'ほ': 'Som は men med ett extra streck – tomten säger ho ho ho!',
+    'ま': 'Ett kors med två armar och en ögla – mamma kramar: ma!',
+    'み': 'Svängen och slängen sjunger – do-re-mi!',
+    'む': 'En ko med horn och svans – muu!',
+    'め': 'Ett öga med ögonfransar – me betyder öga på japanska!',
+    'も': 'En fiskekrok med två maskar – \'mo-ore!\' säger fisken.',
+    'や': 'Ett jakthorn som tutar \'ja!\' – ya låter som ja.',
+    'ゆ': 'En fisk som simmar runt i en ring – yu låter som \'ju\'.',
+    'よ': 'Ett snöre med en jojo – yo!',
+    'ら': 'En rappare med keps – ra!',
+    'り': 'Två grässtrån bredvid varandra – ri som i risfält.',
+    'る': 'Som ろ men med en liten ögla i slutet – en rund ögla: ru!',
+    'れ': 'Som ね men utan öglan – en löpare som reser iväg: re!',
+    'ろ': 'Som る men utan ögla – en rak väg att ro på: ro!',
+    'わ': 'Som れ men slutar i en mjuk båge – vattnet virvlar: wa!',
+    'を': 'En figur som slänger sig framåt – \'wo-oo!\' Skrivs wo, men låter som o.',
+    'ん': 'Ser ut som ett handskrivet n – n!',
+    'ア': 'Som en yxa med kort skaft – a!',
+    'イ': 'Ett i som lutar sig mot en vägg – i!',
+    'ウ': 'Som う fast kantig, med ett litet tak – oo!',
+    'エ': 'Ett I med tak och golv – e!',
+    'オ': 'Ett plustecken som tappar ett ben snett – \'å nej!\': o.',
+    'カ': 'Som か fast utan extra pinne – ka!',
+    'キ': 'Som き fast kantig – en nyckel: ki!',
+    'ク': 'Som く fast kantig – göken: ku!',
+    'ケ': 'Som ett K som ramlat lite – ke som i ketchup.',
+    'コ': 'En halv låda – som こ fast med hörn: ko!',
+    'サ': 'Som さ fast kantig – ett sugrör i ett glas: sa!',
+    'シ': 'Prickarna sitter till vänster och strecket svischar UPPÅT – shi! (Jämför ツ.)',
+    'ス': 'En skidåkare i backen – ssssu!',
+    'セ': 'Som せ fast kantig – se upp för staketet!',
+    'ソ': 'Strecken faller NERÅT, uppifrån – so! (Jämför ン.)',
+    'タ': 'Som ク med ett extra streck i mitten – ta!',
+    'チ': 'Ett T med en hatt – chi!',
+    'ツ': 'Prickarna sitter ovanpå och strecket faller NERÅT som en tsunamivåg – tsu! (Jämför シ.)',
+    'テ': 'Ett T med ett tak – te!',
+    'ト': 'Ett T med bara en arm – to (som tå)!',
+    'ナ': 'Ett plustecken som lutar – na!',
+    'ニ': 'Två streck – och ni betyder två!',
+    'ヌ': 'Som ス med ett extra streck – nudlar med ätpinne: nu!',
+    'ネ': 'En liten sittande katt – neko: ne!',
+    'ノ': 'Bara ett enda snett streck – no, inget mer!',
+    'ハ': 'Två streck som skrattar – ha ha!',
+    'ヒ': 'Som ett liggande h – hi!',
+    'フ': 'Ett hörn som blåser i vinden – fu!',
+    'ヘ': 'Precis som へ – ett hustak: he som i hem.',
+    'ホ': 'Ett kors med två ben – tomtens ho ho!',
+    'マ': 'En 7:a med en liten hake – ma!',
+    'ミ': 'Tre streck – mi-mi-mi, som en sångövning!',
+    'ム': 'Ett triangelhus där kon bor – muu!',
+    'メ': 'Ett kryss över ögat – me betyder öga!',
+    'モ': 'Som も fast kantig – mo!',
+    'ヤ': 'Som や fast kantig – ja!',
+    'ユ': 'Ett U som vänt sig – yu låter som \'ju\'.',
+    'ヨ': 'Som ett spegelvänt E – yo!',
+    'ラ': 'Som ら fast kantig – ra!',
+    'リ': 'Som り fast rakare – ri!',
+    'ル': 'Två ben, där det ena har en krok – en rutschkana: ru!',
+    'レ': 'Ser ut som en bock ✓ – rätt: re!',
+    'ロ': 'En fyrkant – en roddbåt sedd uppifrån: ro!',
+    'ワ': 'Som ウ fast utan pricken överst – wa!',
+    'ヲ': 'Som フ med ett extra streck – skrivs wo, men låter som o.',
+    'ン': 'Pricken sitter nere och strecket svischar UPPÅT – n! (Jämför ソ.)'
+  };
+
+  // Kana that children mix up, practised side by side in Öva → Lika tecken.
+  const LOOK_ALIKES = [
+    ['シ', 'ツ'],
+    ['ソ', 'ン'],
+    ['ぬ', 'め'],
+    ['ね', 'れ', 'わ'],
+    ['る', 'ろ'],
+    ['は', 'ほ'],
+    ['さ', 'ち'],
+    ['き', 'さ'],
+    ['い', 'り'],
+    ['ク', 'タ'],
+    ['ウ', 'ワ']
+  ];
+
+  // How Swedish children should read romaji; shown on the page "Så läser du romaji".
+  const ROMAJI_GUIDE = {
+    intro: 'Romaji är japanska ljud skrivna med våra bokstäver. Men japanska läses inte som svenska! De här bokstäverna är knepigast:',
+    rows: [
+      ['u', 'som o i <em>bo</em>, men utan att runda läpparna', 'inte som u i <em>hus</em>'],
+      ['o', 'som å i <em>båt</em>', 'inte som o i <em>ko</em>'],
+      ['ki, ke', 'alltid hårt k, som i <em>kaka</em>', 'inte "tji" som i <em>kind</em>'],
+      ['gi, ge', 'alltid hårt g, som i <em>gata</em>', 'inte "ji" som i <em>ge</em>'],
+      ['ya, yu, yo', 'y låter som svenskt j: <em>ja</em>, <em>ju</em>, <em>jå</em>', 'inte som y i <em>yxa</em>'],
+      ['ji, ja, ju, jo', 'som j i engelska <em>jeans</em>: "dji"', 'inte som j i <em>ja</em>'],
+      ['shi, sha', 'som tj-ljudet i <em>tjugo</em>', 'inte som sj i <em>sjö</em>'],
+      ['chi, cha', 'som i engelska <em>chips</em>', ''],
+      ['tsu', 'ts som i <em>katts</em>', ''],
+      ['z', 'ett surrande s, som ett bi: zzz', 'inte som ett vanligt s'],
+      ['r', 'en lätt studs med tungan, mitt emellan r och l', 'inte ett rullande r'],
+      ['fu', 'blås lätt mellan läpparna', 'inte ett hårt f'],
+      ['w', 'som w i engelska <em>water</em>', 'inte som v'],
+      ['aa, ii, uu, ee, ou', 'håll ljudet dubbelt så länge', ''],
+      ['kk, tt, pp, ss', 'gör en kort paus innan', '']
+    ],
+    outro: 'Tips: Tryck på 🔊 och härma. Ljudet är alltid rätt, även när bokstäverna lurar dig!'
+  };
+
+  // Card tips for sounds Swedish readers get wrong; the first matching rule wins.
+  const PRONUNCIATION_TIPS = [
+    { match: /^shi$/, tip: "Som tj-ljudet i 'tjugo' eller 'kind', ungefär som engelska 'she'." },
+    { match: /^tsu$/, tip: "'ts' som i 'katts', plus ett kort u." },
+    { match: /^fu$/, tip: "Mjuk 'f', nästan som 'hu'." },
+    { match: /^chi$/, tip: "Som i engelska 'chips' eller 'cheese'." },
+    { match: /^wo$/, tip: "Skrivs 'wo' men låter som 'o'." },
+    { match: /^(k[ie]|ky)/, tip: "Hårt k som i 'kaka' – inte 'tji'." },
+    { match: /^(g[ie]|gy)/, tip: "Hårt g som i 'gata' – inte 'ji'." },
+    { match: /^y/, tip: 'y låter som svenskt j.' },
+    { match: /^j/, tip: "Som j i engelska 'jeans': 'dji'." },
+    { match: /^z/, tip: 'Surrande s, som ett bi: zzz.' },
+    { match: /^r/, tip: 'En lätt studs med tungan, mitt emellan r och l.' },
+    { match: /^u$/, tip: "Som o i 'bo', men utan runda läppar." },
+    { match: /^o$/, tip: "Som å i 'båt'." }
+  ];
+
   // A category meaning is never offered as a wrong option for one of its members ("djur" for "hund").
   const CATEGORIES = {
     djur: ['hund', 'katt', 'ko', 'bläckfisk', 'fisk', 'björn', 'insekt', 'apa', 'fågel', 'ekorre', 'groda', 'krokodil', 'höna',
@@ -412,7 +563,12 @@
 
   function buildKanaGroups(convert, ruleGroup) {
     const base = BASE_ROWS.map(function (row) {
-      return { items: parseRow(convert(row)) };
+      return {
+        items: parseRow(convert(row)).map(function (item) {
+          item.mnemonic = MNEMONICS[item.char];
+          return item;
+        })
+      };
     });
     const voiced = VOICED_ROWS.map(function (entry) {
       return {
@@ -455,7 +611,10 @@
       }]),
       wordGroups: KATAKANA_WORD_GROUPS
     },
-    categories: CATEGORIES
+    categories: CATEGORIES,
+    lookAlikes: LOOK_ALIKES,
+    romajiGuide: ROMAJI_GUIDE,
+    pronunciationTips: PRONUNCIATION_TIPS
   };
 
   if (typeof module !== 'undefined' && module.exports) {

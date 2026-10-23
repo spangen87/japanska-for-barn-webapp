@@ -94,6 +94,38 @@ test('categories only name meanings that exist in the word lists', () => {
   });
 });
 
+test('every base kana in both alphabets has a mnemonic', () => {
+  ['hiragana', 'katakana'].forEach((alphabetId) => {
+    const missing = curriculum[alphabetId].groups.slice(0, 10)
+      .flatMap((group) => group.items)
+      .filter((item) => !item.mnemonic)
+      .map((item) => item.char);
+    assert.deepEqual(missing, []);
+  });
+});
+
+test('look-alike sets only use kana from the curriculum', () => {
+  const chars = new Set(['hiragana', 'katakana'].flatMap((id) => curriculum[id].groups.flatMap((group) => group.items.map((item) => item.char))));
+  curriculum.lookAlikes.forEach((set) => {
+    assert.ok(set.length >= 2, set.join());
+    set.forEach((char) => assert.ok(chars.has(char), char));
+  });
+});
+
+test('every pronunciation tip matches at least one lesson item', () => {
+  const romaji = ['hiragana', 'katakana'].flatMap((id) => curriculum[id].groups.flatMap((group) => group.items.map((item) => item.romaji)));
+  curriculum.pronunciationTips.forEach((rule) => {
+    assert.ok(romaji.some((value) => rule.match.test(value)), String(rule.match));
+  });
+});
+
+test('the romaji guide covers the tricky letters', () => {
+  const covered = curriculum.romajiGuide.rows.map((row) => row[0]).join(' ');
+  ['u', 'o', 'ki', 'gi', 'ya', 'ji', 'shi', 'chi', 'tsu', 'z', 'r', 'fu', 'w'].forEach((letters) => {
+    assert.ok(covered.includes(letters), letters);
+  });
+});
+
 test('penguins count as birds', () => {
   assert.ok(curriculum.categories['fågel'].includes('pingvin'));
 });

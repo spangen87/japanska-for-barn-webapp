@@ -6,28 +6,6 @@
   let pendingLearnFocus = false;
   let lastSpokenCard = '';
 
-  const MNEMONIC_OVERRIDES = {
-    'あ': "Ser ut som ett A med snirkel, tänk 'aah!'.",
-    'き': 'Ser ut som en nyckel, key = ki.',
-    'さ': 'Som ett paraply i vinden: sa!',
-    'ね': 'Som en sovande katt (neko).',
-    'の': 'En virvel som säger no-no.',
-    'し': 'Ser ut som en fiskekrok som hänger i vattnet: shi!',
-    'つ': 'Ser ut som en våg. Tsunami börjar med tsu!',
-    'ふ': "Mjuk 'fu', nästan lite 'hu'.",
-    'シ': "Katakana 'shi', samma ljud som し.",
-    'ツ': "Katakana 'tsu', samma ljud som つ.",
-    'フ': "Katakana 'fu', mjukt och lätt."
-  };
-
-  const PRONUNCIATION_TIPS = {
-    shi: "Som tj-ljudet i 'tjugo' eller 'kind', ungefär som engelska 'she'.",
-    tsu: "'ts' som i 'katts', plus ett kort u.",
-    fu: "Mjuk 'f', nästan som 'hu'.",
-    chi: "Som i engelska 'chips' eller 'cheese'.",
-    wo: "Skrivs 'wo' men låter som 'o'."
-  };
-
   const BADGES = [
     { id: 'hiragana_beginner', icon: '🌸', name: 'Hiragana-nybörjare', rule: 'Lås upp första hiragana-gruppen.' },
     { id: 'hiragana_master', icon: '🗻', name: 'Hiragana-mästare', rule: 'Alla hiragana på nivå 3+.' },
@@ -50,13 +28,20 @@
           char: item.char,
           romaji: item.romaji,
           isRuleExample: Boolean(group.teaches),
-          mnemonic: MNEMONIC_OVERRIDES[item.char] || item.tip || (item.char + ' (' + item.romaji + ') - koppla tecknet till ljudet ' + item.romaji + '.'),
-          tip: PRONUNCIATION_TIPS[item.romaji] || ''
+          mnemonic: item.mnemonic || item.tip || (item.char + ' (' + item.romaji + ') - koppla tecknet till ljudet ' + item.romaji + '.'),
+          tip: pronunciationTip(item.romaji)
         };
       });
     });
 
     return { name: data.name, groups: groups, chars: groups.flat(), wordGroups: data.wordGroups };
+  }
+
+  function pronunciationTip(romaji) {
+    const rule = curriculum.pronunciationTips.find(function (candidate) {
+      return candidate.match.test(romaji);
+    });
+    return rule ? rule.tip : '';
   }
 
   function createProgressMap(chars) {
@@ -365,6 +350,28 @@
 
   function startPracticeSession() {
     const practice = state.practice;
+    if (practice.level === 'lookalike') {
+      const lookAlikeQuestions = buildLookAlikeQuestions(SESSION_QUESTION_COUNT);
+      if (!lookAlikeQuestions.length) {
+        state.practice.session = null;
+        state.practice.notice = 'Lär dig fler tecken först – här övar du på tecken som liknar varandra.';
+        return;
+      }
+      state.practice.session = {
+        index: 0,
+        correct: 0,
+        streak: 0,
+        bestStreak: 0,
+        done: false,
+        feedback: '',
+        answered: null,
+        reveal: false,
+        questions: lookAlikeQuestions
+      };
+      state.practice.notice = '';
+      return;
+    }
+
     if (practice.level === 'words') {
       const wordPool = getUnlockedWords(practice.alphabet);
       const distinctMeanings = new Set(wordPool.map(function (item) {
@@ -424,6 +431,40 @@
       questions: questions
     };
     state.practice.notice = '';
+  }
+
+  function isSeen(char) {
+    return Boolean(state.seenChars.hiragana[char] || state.seenChars.katakana[char]);
+  }
+
+  // Asks which of a set of look-alike kana makes a sound; only sets the child has fully seen.
+  function buildLookAlikeQuestions(count) {
+    const romajiOf = {};
+    ALPHABETS.hiragana.chars.concat(ALPHABETS.katakana.chars).forEach(function (item) {
+      romajiOf[item.char] = item.romaji;
+    });
+    const items = curriculum.lookAlikes
+      .filter(function (set) {
+        return set.every(isSeen);
+      })
+      .flatMap(function (set) {
+        return set.map(function (char) {
+          return { char: char, set: set };
+        });
+      });
+    if (!items.length) {
+      return [];
+    }
+    return core.pickRounds(items, count).map(function (item) {
+      return {
+        char: item.char,
+        romaji: romajiOf[item.char],
+        prompt: 'Vilket tecken är ' + romajiOf[item.char] + '?',
+        answer: item.char,
+        options: shuffled(item.set),
+        mode: 'lookalike'
+      };
+    });
   }
 
   function buildWordQuestions(pool, count) {
@@ -731,6 +772,8 @@
       renderLearn();
     } else if (state.view === 'practice') {
       renderPractice();
+    } else if (state.view === 'romaji') {
+      renderRomajiGuide();
     } else {
       renderProgress();
     }
@@ -841,6 +884,7 @@
       '<button class="btn-main" data-action="go-learn">🎓 Lär dig</button>' +
       '<button class="btn-main" data-action="go-practice">🎮 Öva</button>' +
       '<button class="btn-main" data-action="go-progress">⭐ Mina framsteg</button>' +
+      '<button class="btn-soft" data-action="go-romaji">📖 Så läser du romaji</button>' +
       '</article>' +
       '<article class="card progress-wrap">' +
       progressBarHtml('Hiragana (upptäckta)', getSeenCount('hiragana'), ALPHABETS.hiragana.chars.length, getSeenPercent('hiragana')) +
@@ -964,7 +1008,11 @@
         (isWordUnit
           ? '<p><strong>Betydelse:</strong> ' + current.meaning + '</p>'
           : '<p><strong>Minnesknep:</strong> ' + current.mnemonic + '</p>') +
-        '<p class="muted">' + (isWordUnit ? 'Lyssna på ordet och säg både japanska och svenska högt.' : (current.tip || 'Tryck på ljudknappen flera gånger och härma uttalet.')) + '</p>' +
+        '<p class="muted">' + (isWordUnit
+          ? 'Lyssna på ordet och säg både japanska och svenska högt.'
+          : current.tip
+            ? current.tip + ' <button class="link-btn" data-action="go-romaji">📖 Så läser du romaji</button>'
+            : 'Tryck på ljudknappen flera gånger och härma uttalet.') + '</p>' +
         '<div class="action-row" style="grid-template-columns:repeat(4,minmax(0,1fr));">' +
         '<button class="btn-soft" data-action="learn-prev">← Förra</button>' +
         '<button class="btn-soft" data-action="learn-speak">🔊 Ljud</button>' +
@@ -1010,33 +1058,57 @@
       '<button class="btn-soft" data-action="close-learn-quiz">Tillbaka</button></div>';
   }
 
+  function renderRomajiGuide() {
+    const guide = curriculum.romajiGuide;
+    app.innerHTML =
+      topBarHtml() +
+      '<section class="progress-layout">' +
+      '<article class="card"><button class="btn-soft" data-action="go-home">Hem</button></article>' +
+      '<article class="card"><h2>📖 Så läser du romaji</h2><p>' + guide.intro + '</p>' +
+      '<table class="romaji-guide"><thead><tr><th>Romaji</th><th>Säg så här</th><th>Inte så här</th></tr></thead><tbody>' +
+      guide.rows.map(function (row) {
+        return '<tr><th scope="row">' + row[0] + '</th><td>' + row[1] + '</td><td class="muted">' + row[2] + '</td></tr>';
+      }).join('') +
+      '</tbody></table><p class="muted">' + guide.outro + '</p></article>' +
+      '</section>';
+  }
+
   function renderPractice() {
     const practice = state.practice;
     const isWordLevel = practice.level === 'words';
+    const isLookAlikeLevel = practice.level === 'lookalike';
 
     let sessionBody =
       '<article class="card"><h3>Öva</h3><p>' + (isWordLevel
         ? 'Träna enkla japanska ord. Sessionen innehåller '
-        : 'Välj läge och alfabet. Sessionen innehåller ') + SESSION_QUESTION_COUNT + ' frågor.</p>' +
+        : isLookAlikeLevel
+          ? 'Träna på tecken som är lätta att blanda ihop. Sessionen innehåller '
+          : 'Välj läge och alfabet. Sessionen innehåller ') + SESSION_QUESTION_COUNT + ' frågor.</p>' +
       '<div class="mode-toggle">' +
       toggleButtonHtml(practice.level === 'chars', 'set-practice-level', 'chars', 'Tecken') +
       toggleButtonHtml(practice.level === 'words', 'set-practice-level', 'words', 'Enkla ord') +
+      toggleButtonHtml(practice.level === 'lookalike', 'set-practice-level', 'lookalike', 'Lika tecken') +
       '</div>' +
+      (isLookAlikeLevel
+        ? '<p class="muted" style="margin-top:8px;">Tecken som liknar varandra – titta noga på skillnaden!</p>'
+        : '') +
       (isWordLevel
         ? '<p class="muted" style="margin-top:8px;">Öva orden du har låst upp i Lär dig.</p>'
         : '') +
-      (isWordLevel
+      (isWordLevel || isLookAlikeLevel
         ? ''
         :
       '<div class="mode-toggle">' +
       toggleButtonHtml(practice.mode === 'char_to_romaji', 'set-practice-mode', 'char_to_romaji', 'Tecken → Ljud') +
       toggleButtonHtml(practice.mode === 'sound_to_char', 'set-practice-mode', 'sound_to_char', 'Ljud → Tecken', getVoiceStatus() === 'missing') +
       '</div>') +
-      '<div class="alphabet-toggle" style="margin-top:8px;">' +
-      toggleButtonHtml(practice.alphabet === 'hiragana', 'set-practice-alphabet', 'hiragana', 'Hiragana') +
-      toggleButtonHtml(practice.alphabet === 'katakana', 'set-practice-alphabet', 'katakana', 'Katakana') +
-      toggleButtonHtml(practice.alphabet === 'mixed', 'set-practice-alphabet', 'mixed', 'Blandat') +
-      '</div>' +
+      (isLookAlikeLevel
+        ? ''
+        : '<div class="alphabet-toggle" style="margin-top:8px;">' +
+          toggleButtonHtml(practice.alphabet === 'hiragana', 'set-practice-alphabet', 'hiragana', 'Hiragana') +
+          toggleButtonHtml(practice.alphabet === 'katakana', 'set-practice-alphabet', 'katakana', 'Katakana') +
+          toggleButtonHtml(practice.alphabet === 'mixed', 'set-practice-alphabet', 'mixed', 'Blandat') +
+          '</div>') +
       (practice.notice ? '<p class="feedback bad">' + practice.notice + '</p>' : '') +
       '<div style="margin-top:10px;"><button class="btn-main" data-action="start-practice">Starta session</button></div></article>';
 
@@ -1053,17 +1125,18 @@
         const q = session.questions[session.index];
         if (q.mode === 'word_to_meaning') {
           speak(q.word);
-        } else if (q.mode === 'sound_to_char' || session.answered) {
+        } else if (q.mode === 'sound_to_char' || q.mode === 'lookalike' || session.answered) {
           speak(q.char);
         }
 
         sessionBody +=
           '<article class="card"><h3>Fråga ' + (session.index + 1) + '/' + session.questions.length + '</h3>' +
           '<p><strong>' + q.prompt + '</strong></p>' +
-          bigCharHtml(q.mode === 'char_to_romaji' ? q.char : q.mode === 'word_to_meaning' ? q.word : '🔊') +
-          (q.mode === 'word_to_meaning' ? '<p class="romaji">' + q.romaji + '</p>' : '') +
+          bigCharHtml(q.mode === 'char_to_romaji' ? q.char : q.mode === 'word_to_meaning' ? q.word : q.mode === 'lookalike' ? q.romaji : '🔊') +
+          // Romaji stays hidden until the answer, so the child has to read the kana.
+          (q.mode === 'word_to_meaning' && session.answered ? '<p class="romaji">' + q.romaji + '</p>' : '') +
           '<div class="action-row" style="grid-template-columns:repeat(2,minmax(0,1fr));">' +
-          (q.mode === 'sound_to_char' || q.mode === 'word_to_meaning' ? '<button class="btn-soft" data-action="repeat-sound">🔊 Spela igen</button>' : '<div></div>') +
+          (q.mode !== 'char_to_romaji' ? '<button class="btn-soft" data-action="repeat-sound">🔊 Spela igen</button>' : '<div></div>') +
           '<div></div></div>' +
           optionButtonsHtml(q, session.answered, 'answer-practice') +
           feedbackHtml(session.feedback, session.answered) +
@@ -1203,6 +1276,8 @@
       setView('practice');
     } else if (action === 'go-progress') {
       setView('progress');
+    } else if (action === 'go-romaji') {
+      setView('romaji');
     } else if (action === 'set-learn-alphabet') {
       state.learn.alphabet = value;
       state.learn.unit = 'group';
@@ -1290,7 +1365,7 @@
       state.practice.notice = '';
       render();
     } else if (action === 'set-practice-level') {
-      state.practice.level = value === 'words' ? 'words' : 'chars';
+      state.practice.level = value === 'words' || value === 'lookalike' ? value : 'chars';
       state.practice.session = null;
       state.practice.notice = '';
       render();
@@ -1311,10 +1386,8 @@
         const q = session.questions[session.index];
         if (q.mode === 'word_to_meaning') {
           speak(q.word);
-        } else if (q.mode === 'sound_to_char') {
-          speak(q.char);
         } else {
-          speak(q.romaji);
+          speak(q.char);
         }
       }
     }
