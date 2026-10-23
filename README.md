@@ -37,5 +37,6 @@ words(3, [
 - **Romaji:** skrivs som kanan. おう skrivs `ou`, ー blir dubbel vokal, ん skrivs `n` och っ dubblar konsonanten.
 - **Ord med långa vokaler** ska komma tidigast efter grupp 11.
 - **Inga dubbletter:** ord, betydelse och emoji får förekomma högst en gång per alfabet.
+- **Kategorier:** är ordet ett djur, en frukt, en färg eller liknande lägger du till dess betydelse i `CATEGORIES`. Då visas inte kategorin (till exempel "djur") som ett felaktigt svarsalternativ.
 
 Kör `npm test` efter ändringen. Datatesterna i `test/curriculum.test.js` säger till om något bryter mot reglerna.

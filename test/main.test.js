@@ -907,3 +907,75 @@ test('word practice hides the romaji until the child has answered', () => {
   app.click('answer-practice', { value: question.answer });
   assert.match(app.html(), new RegExp('<p class="romaji">' + question.romaji + '<'));
 });
+
+test('a practice question is spoken once even when the page redraws', () => {
+  const app = loadApp({ ...SEEN_FIRST_HIRAGANA_ROW, practice: { alphabet: 'hiragana', level: 'chars', mode: 'sound_to_char' } });
+  app.click('go-practice');
+  app.click('start-practice');
+  const spokenBefore = app.spoken.length;
+  app.click('set-practice-alphabet', { value: 'hiragana' });
+
+  assert.equal(app.spoken.length, spokenBefore);
+});
+
+test('speech prefers a voice that works offline', () => {
+  const app = loadApp(null, null, {
+    voices: [{ lang: 'ja-JP', name: 'Google 日本語', localService: false }, { lang: 'ja-JP', name: 'Kyoko', localService: true }]
+  });
+  app.click('start-game');
+  app.click('go-learn');
+
+  assert.equal(app.voicesUsed.at(-1).name, 'Kyoko');
+});
+
+test('the voice warning is not re-announced as a live region', () => {
+  const app = loadApp(null, null, { voices: [SWEDISH_VOICE] });
+  app.click('start-game');
+  app.click('go-learn');
+
+  assert.match(app.html(), /Ingen japansk röst/);
+  assert.doesNotMatch(app.html(), /role="status"/);
+});
+
+test('mixed listening practice never plays the same sound twice in a row', () => {
+  const app = loadApp({
+    practice: { alphabet: 'mixed', level: 'chars', mode: 'sound_to_char' },
+    seenChars: {
+      hiragana: { あ: true, い: true, う: true, え: true, お: true },
+      katakana: { ア: true, イ: true, ウ: true, エ: true, オ: true }
+    }
+  });
+  app.click('go-practice');
+  for (let run = 0; run < 5; run += 1) {
+    app.click('start-practice');
+    const sounds = app.state().practice.session.questions.map((question) => SOUND_OF[question.char]);
+    sounds.forEach((sound, i) => assert.notEqual(sound, sounds[i - 1], sounds.join(' ')));
+  }
+});
+
+test('a word quiz still offers four options when a category option is left out', () => {
+  const wordGroupIndex = curriculum.hiragana.wordGroups.findIndex((group) => group.words.some((word) => word.meaning === 'djur'));
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'words', wordGroupIndex: wordGroupIndex, cardIndex: 0 } });
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+
+  app.state().learn.quiz.questions.forEach((question) => {
+    assert.equal(question.options.length, 4, question.answer);
+  });
+});
+
+test('single kana questions never offer whole rule-group words as options', () => {
+  const ruleRomaji = curriculum.hiragana.groups[10].items.map((item) => item.romaji);
+  const seen = { あ: true, い: true, う: true, え: true, お: true };
+  curriculum.hiragana.groups[10].items.forEach((item) => {
+    seen[item.char] = true;
+  });
+  const app = loadApp({ practice: { alphabet: 'hiragana', level: 'chars', mode: 'char_to_romaji' }, seenChars: { hiragana: seen } });
+  app.click('go-practice');
+  for (let run = 0; run < 5; run += 1) {
+    app.click('start-practice');
+    app.state().practice.session.questions
+      .filter((question) => !ruleRomaji.includes(question.answer))
+      .forEach((question) => question.options.forEach((option) => assert.ok(!ruleRomaji.includes(option), option)));
+  }
+});

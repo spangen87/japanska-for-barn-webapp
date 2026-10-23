@@ -156,3 +156,21 @@ test('pickRounds draws heavier items first within a round', () => {
     assert.deepEqual(picked, ['a']);
   }
 });
+
+test('pickRounds can keep items with the same key apart', () => {
+  const items = [{ key: 'a' }, { key: 'a' }, { key: 'b' }, { key: 'b' }, { key: 'c' }];
+  for (let run = 0; run < 50; run += 1) {
+    const picked = core.pickRounds(items, 10, null, (item) => item.key);
+    picked.forEach((item, i) => assert.notEqual(item.key, picked[i - 1] && picked[i - 1].key, picked.map((p) => p.key).join('')));
+  }
+});
+
+test('pickRounds draws items in proportion to their weight', () => {
+  let heavyFirst = 0;
+  for (let run = 0; run < 1000; run += 1) {
+    if (core.pickRounds(['heavy', 'light'], 1, (item) => (item === 'heavy' ? 8 : 2))[0] === 'heavy') {
+      heavyFirst += 1;
+    }
+  }
+  assert.ok(heavyFirst > 720 && heavyFirst < 880, String(heavyFirst));
+});

@@ -5,6 +5,7 @@
   const SESSION_QUESTION_COUNT = 10;
   let pendingLearnFocus = false;
   let lastSpokenCard = '';
+  let lastSpokenQuestion = '';
 
   const BADGES = [
     { id: 'hiragana_beginner', icon: '🌸', name: 'Hiragana-nybörjare', rule: 'Lås upp första hiragana-gruppen.' },
@@ -261,6 +262,14 @@
     const voices = getVoices().filter(function (voice) {
       return /^ja/i.test(voice.lang);
     });
+    // Offline voices first: network voices can be silent on school networks.
+    const offline = voices.filter(function (voice) {
+      return voice.localService !== false;
+    });
+    return pickVoice(offline) || pickVoice(voices);
+  }
+
+  function pickVoice(voices) {
     return voices.find(function (voice) {
       return PREFERRED_VOICE_NAMES.test(voice.name);
     }) || voices.find(function (voice) {
@@ -300,8 +309,16 @@
     let questions = [];
     if (learn.unit === 'words') {
       const words = getCurrentLearnWords();
+      const afterGroup = getCurrentLearnWordGroup().afterGroup;
+      const earlierWords = ALPHABETS[learn.alphabet].wordGroups
+        .filter(function (group) {
+          return group.afterGroup <= afterGroup;
+        })
+        .flatMap(function (group) {
+          return group.words;
+        });
       questions = shuffled(words).map(function (wordObj) {
-        const options = buildOptions(withoutCategoriesOf(words, wordObj.meaning), wordObj.meaning, function (item) {
+        const options = buildOptions(wordOptionPool(wordObj.meaning, words, earlierWords), wordObj.meaning, function (item) {
           return item.meaning;
         });
         return {
@@ -350,6 +367,7 @@
 
   function startPracticeSession() {
     const practice = state.practice;
+    lastSpokenQuestion = '';
     if (practice.level === 'lookalike') {
       const lookAlikeQuestions = buildLookAlikeQuestions(SESSION_QUESTION_COUNT);
       if (!lookAlikeQuestions.length) {
@@ -474,7 +492,7 @@
   }
 
   function createWordQuestion(wordObj, pool) {
-    const options = buildOptions(withoutCategoriesOf(pool, wordObj.meaning), wordObj.meaning, function (item) {
+    const options = buildOptions(wordOptionPool(wordObj.meaning, pool, pool), wordObj.meaning, function (item) {
       return item.meaning;
     });
     return {
@@ -485,6 +503,21 @@
       options: options,
       mode: 'word_to_meaning'
     };
+  }
+
+  // Uses the given words as options and tops up from fallback words when filtering leaves fewer than four meanings.
+  function wordOptionPool(meaning, words, fallbackWords) {
+    const pool = withoutCategoriesOf(words, meaning);
+    const meanings = new Set(pool.map(function (item) {
+      return item.meaning;
+    }));
+    shuffled(withoutCategoriesOf(fallbackWords, meaning)).forEach(function (item) {
+      if (meanings.size < 4 && !meanings.has(item.meaning)) {
+        meanings.add(item.meaning);
+        pool.push(item);
+      }
+    });
+    return pool;
   }
 
   // Leaves out words whose meaning is the category of the answer, such as "djur" when the answer is "hund".
@@ -541,12 +574,14 @@
 
   function pickPracticeChars(pool, count, alphabetChoice) {
     // Weak, often-missed and due characters come first in each round.
-    return core.pickRounds(pool, count, function (charObj) {
+    return core.pickRounds(pool, count, practiceWeight, soundOf);
+
+    function practiceWeight(charObj) {
       const progress = getProgressEntry(charObj.char, alphabetChoice);
       const due = progress.nextReview <= todayKey() ? 2 : 0;
       const weak = Math.max(0, 6 - progress.level);
       return weak + progress.timesWrong * 0.3 + due + 1;
-    });
+    }
   }
 
   function getProgressEntry(char, alphabetChoice) {
@@ -560,7 +595,7 @@
   }
 
   function createPracticeQuestion(charObj, mode, alphabetChoice) {
-    const pool = getPracticePool(alphabetChoice);
+    const pool = sameKindPool(getPracticePool(alphabetChoice), charObj);
 
     if (mode === 'sound_to_char') {
       const options = buildOptions(oneCharPerSound(pool, charObj), charObj.char, function (item) {
@@ -587,6 +622,14 @@
       options: options,
       mode: mode
     };
+  }
+
+  // Single kana get single kana as options and rule-group words get words, unless that leaves too few.
+  function sameKindPool(pool, charObj) {
+    const sameKind = pool.filter(function (item) {
+      return Boolean(item.isRuleExample) === Boolean(charObj.isRuleExample);
+    });
+    return new Set(sameKind.map(soundOf)).size >= 4 ? sameKind : pool;
   }
 
   // を is written "wo" but pronounced "o", so it counts as the same sound as お.
@@ -847,7 +890,7 @@
     if (getVoiceStatus() !== 'missing') {
       return '';
     }
-    return '<article class="card voice-warning" role="status"><strong>🔇 Ingen japansk röst hittades.</strong> ' +
+    return '<article class="card voice-warning"><strong>🔇 Ingen japansk röst hittades.</strong> ' +
       '<span class="muted">Ljudet fungerar inte på den här enheten. Be en vuxen installera en japansk röst i enhetens inställningar ' +
       '(på iPad: Inställningar → Hjälpmedel → Talat innehåll → Röster) eller prova Chrome eller Safari.</span></article>';
   }
@@ -1123,11 +1166,16 @@
           '<button class="btn-main" data-action="start-practice" data-value="again">Kör igen</button></article>';
       } else {
         const q = session.questions[session.index];
-        if (q.mode === 'word_to_meaning') {
-          speak(q.word);
-        } else if (q.mode === 'sound_to_char' || q.mode === 'lookalike' || session.answered) {
-          speak(q.char);
+        // Speak once per question (and once more after answering), not on every redraw.
+        const questionKey = session.index + '|' + Boolean(session.answered);
+        if (questionKey !== lastSpokenQuestion) {
+          if (q.mode === 'word_to_meaning') {
+            speak(q.word);
+          } else if (q.mode === 'sound_to_char' || q.mode === 'lookalike' || session.answered) {
+            speak(q.char);
+          }
         }
+        lastSpokenQuestion = questionKey;
 
         sessionBody +=
           '<article class="card"><h3>Fråga ' + (session.index + 1) + '/' + session.questions.length + '</h3>' +

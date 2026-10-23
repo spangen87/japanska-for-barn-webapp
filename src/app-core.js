@@ -103,10 +103,13 @@
   }
 
   // Draws count items in rounds: every item once (heavier first, by weight) before any repeats,
-  // and never the same item twice in a row.
-  function pickRounds(items, count, weightOf) {
+  // and never two items with the same key (by default the item itself) in a row.
+  function pickRounds(items, count, weightOf, keyOf) {
     const weight = weightOf || function () {
       return 1;
+    };
+    const key = keyOf || function (item) {
+      return item;
     };
     const picked = [];
     let remaining = [];
@@ -115,12 +118,19 @@
         remaining = items.slice();
       }
       const last = picked[picked.length - 1];
-      const fresh = remaining.filter(function (item) {
-        return item !== last;
-      });
-      const choice = weightedChoice(fresh.length ? fresh : remaining, weight);
-      remaining.splice(remaining.indexOf(choice), 1);
-      picked.push(choice);
+      const differs = function (item) {
+        return picked.length === 0 || key(item) !== key(last);
+      };
+      const fresh = remaining.filter(differs);
+      if (fresh.length) {
+        const choice = weightedChoice(fresh, weight);
+        remaining.splice(remaining.indexOf(choice), 1);
+        picked.push(choice);
+      } else {
+        // Only same-key items are left in this round: borrow one from the next round instead.
+        const others = items.filter(differs);
+        picked.push(weightedChoice(others.length ? others : remaining, weight));
+      }
     }
     return picked;
   }
