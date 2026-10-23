@@ -61,6 +61,7 @@ function loadApp(savedState, extraStorage, options) {
       }
     },
     confirm: () => opts.confirm !== false,
+    prompt: () => (opts.prompt === undefined ? null : opts.prompt),
     SpeechSynthesisUtterance: function (text) {
       this.text = text;
     },
@@ -78,6 +79,7 @@ function loadApp(savedState, extraStorage, options) {
     voicesUsed: voicesUsed,
     focused: focused,
     announced: () => announcer.textContent,
+    stored: (key) => (key in storage ? JSON.parse(storage[key]) : null),
     // Simulates the browser finishing loading its voices.
     voicesChanged: (voices) => {
       context.voices = voices;
@@ -1204,4 +1206,35 @@ test('voices finishing loading do not redraw the page when the warning stays hid
   app.voicesChanged([{ lang: 'ja-JP', name: 'Kyoko', localService: true }]);
 
   assert.equal(app.html(), 'MARK');
+});
+
+test('a parent can add a child, and each child keeps their own progress', () => {
+  const app = loadApp({ completedGroups: { hiragana: completedUpTo(3) } }, null, { prompt: 'Ella' });
+  app.click('add-profile');
+
+  const profiles = app.stored('japanskaBarnApp.profiles');
+  assert.equal(profiles.list.length, 2);
+  const ella = profiles.list.find((profile) => profile.name === 'Ella');
+  assert.equal(profiles.active, ella.id);
+  assert.equal(app.stored(STORAGE_KEY + ':' + ella.id).completedGroups.hiragana[0], false);
+  assert.match(app.html(), /Ella/);
+
+  app.click('go-home');
+  app.click('choose-profile', { value: 'default' });
+  assert.equal(app.state().completedGroups.hiragana[0], true);
+});
+
+test('cancelling the name question adds no child', () => {
+  const app = loadApp(null, null, { prompt: null });
+  app.click('add-profile');
+
+  const profiles = app.stored('japanskaBarnApp.profiles');
+  assert.ok(!profiles || profiles.list.length === 1);
+});
+
+test('the intro lets the child choose who is playing', () => {
+  const app = loadApp(null, { 'japanskaBarnApp.profiles': JSON.stringify({ active: 'default', list: [{ id: 'default', name: 'Leo' }, { id: 'p2', name: 'Ella' }] }) });
+
+  assert.match(app.html(), /data-action="choose-profile" data-value="default"[^>]*>[^<]*Leo/);
+  assert.match(app.html(), /data-action="choose-profile" data-value="p2"[^>]*>[^<]*Ella/);
 });

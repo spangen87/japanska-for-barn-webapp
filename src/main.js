@@ -2,6 +2,7 @@
   const core = window.JapaneseAppCore;
   const curriculum = window.JapaneseCurriculum;
   const STORAGE_KEY = 'japanskaBarnApp.v2';
+  const PROFILES_KEY = 'japanskaBarnApp.profiles';
   const SESSION_QUESTION_COUNT = 10;
   let pendingLearnFocus = false;
   let lastSpokenCard = '';
@@ -29,6 +30,7 @@
   };
 
   const app = document.getElementById('app');
+  let profiles = loadProfiles();
   let state = loadState();
 
   function buildAlphabet(data) {
@@ -120,7 +122,7 @@
 
   function loadState() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(profileStorageKey());
       if (!raw) {
         return createInitialState();
       }
@@ -186,9 +188,70 @@
     return result;
   }
 
+  // Each child has their own saved state; the first profile keeps the original key so nothing is lost.
+  function loadProfiles() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(PROFILES_KEY));
+      if (parsed && Array.isArray(parsed.list) && parsed.list.length) {
+        const active = parsed.list.some(function (profile) {
+          return profile.id === parsed.active;
+        }) ? parsed.active : parsed.list[0].id;
+        return { active: active, list: parsed.list };
+      }
+    } catch (error) {
+      // Fall through to a single default profile.
+    }
+    return { active: 'default', list: [{ id: 'default', name: 'Barn 1' }] };
+  }
+
+  function saveProfiles() {
+    try {
+      localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+    } catch (error) {
+      // Same as saveState: keep working without storage.
+    }
+  }
+
+  function profileStorageKey() {
+    return profiles.active === 'default' ? STORAGE_KEY : STORAGE_KEY + ':' + profiles.active;
+  }
+
+  function currentProfile() {
+    return profiles.list.find(function (profile) {
+      return profile.id === profiles.active;
+    }) || profiles.list[0];
+  }
+
+  function switchProfile(id) {
+    saveState();
+    profiles.active = id;
+    saveProfiles();
+    state = loadState();
+    state.view = 'home';
+    lastSpokenCard = '';
+    lastSpokenQuestion = '';
+    render();
+  }
+
+  function addProfile() {
+    const name = (window.prompt('Vad heter barnet?') || '').trim();
+    if (!name) {
+      return;
+    }
+    const id = 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
+    profiles.list.push({ id: id, name: name.slice(0, 30) });
+    switchProfile(id);
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+    });
+  }
+
   function saveState() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(profileStorageKey(), JSON.stringify(state));
     } catch (error) {
       // Storage can be blocked or full (private mode, school devices); the app still works without saving.
     }
@@ -938,7 +1001,8 @@
 
   function topBarHtml() {
     const days = core.getActiveStreak(state.streak, todayKey());
-    return '<div class="topbar"><h1>Japanska för barn</h1><div class="streak-pill">🔥 Streak: ' + days + (days === 1 ? ' dag' : ' dagar') + '</div></div>';
+    return '<div class="topbar"><div><h1>Japanska för barn</h1><span class="profile-name">👤 ' + escapeHtml(currentProfile().name) + '</span></div>' +
+      '<div class="streak-pill">🔥 Streak: ' + days + (days === 1 ? ' dag' : ' dagar') + '</div></div>';
   }
 
   function optionButtonsHtml(question, answered, action) {
@@ -997,7 +1061,11 @@
       '<p class="intro-romaji">Kon-ni-chi-wa!</p>' +
       '<p class="muted">Välkommen till japanska för barn.</p>' +
       '<p class="muted">Psst! Här låter <span lang="ja">は</span> som "wa".</p>' +
-      '<button class="btn-main" data-action="start-game">Starta</button>' +
+      '<p class="muted"><strong>Vem spelar?</strong></p>' +
+      '<div class="profile-list">' + profiles.list.map(function (profile) {
+        return toggleButtonHtml(profile.id === profiles.active, 'choose-profile', profile.id, '👤 ' + escapeHtml(profile.name));
+      }).join('') + '<button class="btn-soft" data-action="add-profile">➕ Lägg till barn</button></div>' +
+      '<button class="btn-main" data-action="start-game">Starta som ' + escapeHtml(currentProfile().name) + '</button>' +
       '</section>';
   }
 
@@ -1540,6 +1608,14 @@
       state.learn.quiz = null;
       pendingLearnFocus = true;
       render();
+    } else if (action === 'choose-profile') {
+      if (profiles.list.some(function (profile) {
+        return profile.id === value;
+      })) {
+        switchProfile(value);
+      }
+    } else if (action === 'add-profile') {
+      addProfile();
     } else if (action === 'toggle-writing') {
       state.learn.writing = !state.learn.writing;
       render();
