@@ -60,7 +60,7 @@ function loadApp(savedState, extraStorage, options) {
         voicesUsed.push(utterance.voice);
       }
     },
-    confirm: () => opts.confirm !== false,
+    confirm: (text) => (context.confirmHook ? context.confirmHook(text) : opts.confirm !== false),
     prompt: () => (opts.prompt === undefined ? null : opts.prompt),
     SpeechSynthesisUtterance: function (text) {
       this.text = text;
@@ -80,10 +80,20 @@ function loadApp(savedState, extraStorage, options) {
     focused: focused,
     announced: () => announcer.textContent,
     stored: (key) => (key in storage ? JSON.parse(storage[key]) : null),
+    // Like click, but fails when no such button is on screen.
+    clickVisible: (action, value) => {
+      const attr = 'data-action="' + action + '"' + (value ? ' data-value="' + value + '"' : '');
+      assert.ok(appElement.innerHTML.includes(attr), 'no button ' + attr);
+      context.clickEvent = { target: { closest: () => ({ dataset: { action: action, value: value } }) } };
+      vm.runInContext('document.getElementById("app").listener(clickEvent)', context, { timeout: 1000 });
+    },
     // Simulates the browser finishing loading its voices.
     voicesChanged: (voices) => {
       context.voices = voices;
       vm.runInContext('voiceListener()', context, { timeout: 1000 });
+    },
+    setConfirm: (fn) => {
+      context.confirmHook = fn;
     },
     markHtml: () => {
       appElement.innerHTML = 'MARK';
@@ -1219,8 +1229,8 @@ test('a parent can add a child, and each child keeps their own progress', () => 
   assert.equal(app.stored(STORAGE_KEY + ':' + ella.id).completedGroups.hiragana[0], false);
   assert.match(app.html(), /Ella/);
 
-  app.click('go-home');
-  app.click('choose-profile', { value: 'default' });
+  app.clickVisible('switch-profile');
+  app.clickVisible('choose-profile', 'default');
   assert.equal(app.state().completedGroups.hiragana[0], true);
 });
 
@@ -1237,4 +1247,84 @@ test('the intro lets the child choose who is playing', () => {
 
   assert.match(app.html(), /data-action="choose-profile" data-value="default"[^>]*>[^<]*Leo/);
   assert.match(app.html(), /data-action="choose-profile" data-value="p2"[^>]*>[^<]*Ella/);
+});
+
+test('Snabb som blixten is earned even if the run of 20 breaks before the session ends', () => {
+  const app = loadApp({ ...SEEN_FIRST_HIRAGANA_ROW, stats: { totalCorrect: 15, runStreak: 15 } });
+  app.click('go-practice');
+  app.click('start-practice');
+  let session = app.state().practice.session;
+  while (!session.done) {
+    const question = session.questions[session.index];
+    const value = session.index < 5 ? question.answer : question.options.find((option) => option !== question.answer);
+    app.click('answer-practice', { value: value });
+    app.click('next-practice');
+    session = app.state().practice.session;
+  }
+
+  assert.ok(app.state().badges.includes('fast_lightning'));
+});
+
+test('picture questions never offer a member of the word\'s own category', () => {
+  const meaningOfEmoji = {};
+  curriculum.hiragana.wordGroups.forEach((group) => group.words.forEach((word) => {
+    meaningOfEmoji[word.emoji] = word.meaning;
+  }));
+  const app = loadApp({ completedGroups: { hiragana: completedUpTo(16) }, practice: { alphabet: 'hiragana', level: 'words' } });
+  app.click('go-practice');
+  for (let run = 0; run < 40; run += 1) {
+    app.click('start-practice');
+    app.state().practice.session.questions
+      .filter((question) => question.mode === 'word_to_picture')
+      .forEach((question) => {
+        const members = curriculum.categories[meaningOfEmoji[question.answer]] || [];
+        question.options.forEach((option) => assert.ok(!members.includes(meaningOfEmoji[option]), question.word + ' / ' + option));
+      });
+  }
+});
+
+test('word cards do not offer the writing pad', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'words', wordGroupIndex: 0, cardIndex: 0 } });
+  app.click('go-learn');
+
+  assert.doesNotMatch(app.html(), /data-action="toggle-writing"/);
+});
+
+test('picture feedback names the meaning of the right picture', () => {
+  const app = loadApp(UNLOCK_FIRST_TWO_HIRAGANA_GROUPS);
+  app.click('go-practice');
+  app.click('start-practice');
+  let session = app.state().practice.session;
+  while (session.questions[session.index].mode !== 'word_to_picture') {
+    app.click('answer-practice', { value: session.questions[session.index].answer });
+    app.click('next-practice');
+    session = app.state().practice.session;
+  }
+  const question = session.questions[session.index];
+  app.click('answer-practice', { value: question.options.find((option) => option !== question.answer) });
+
+  const word = curriculum.hiragana.wordGroups.flatMap((group) => group.words).find((item) => item.word === question.word);
+  assert.match(app.state().practice.session.feedback, new RegExp(word.meaning));
+});
+
+test('the learn quiz says what to choose', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'words', wordGroupIndex: 0, cardIndex: 0 } });
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+
+  assert.match(app.html(), /Vad betyder ordet\?|Vilken bild passar ordet\?/);
+});
+
+test('the reset question names the child', () => {
+  let asked = '';
+  const app = loadApp(null, { 'japanskaBarnApp.profiles': JSON.stringify({ active: 'default', list: [{ id: 'default', name: 'Leo' }] }) }, { confirm: false });
+  app.setConfirm((text) => {
+    asked = text;
+    return false;
+  });
+  app.click('start-game');
+  app.click('go-progress');
+  app.click('reset-progress');
+
+  assert.match(asked, /Leo/);
 });

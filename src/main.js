@@ -113,7 +113,8 @@
       wordProgress: {},
       stats: {
         totalCorrect: 0,
-        runStreak: 0
+        runStreak: 0,
+        bestRunStreak: 0
       },
       badges: [],
       progressUpdatedAt: null
@@ -403,6 +404,7 @@
         return {
           promptChar: wordObj.word,
           answer: pickAnswer(wordObj),
+          answerLabel: index % 2 === 1 ? wordObj.emoji + ' (' + wordObj.meaning + ')' : wordObj.meaning,
           options: buildOptions(wordOptionPool(wordObj.meaning, words, earlierWords), pickAnswer(wordObj), pickAnswer),
           type: 'word',
           kind: index % 2 === 1 ? 'picture' : 'meaning'
@@ -605,6 +607,7 @@
       romaji: wordObj.romaji,
       prompt: asPicture ? 'Vilken bild passar ordet?' : 'Vad betyder ordet?',
       answer: pickAnswer(wordObj),
+      answerLabel: asPicture ? wordObj.emoji + ' (' + wordObj.meaning + ')' : wordObj.meaning,
       options: buildOptions(wordOptionPool(wordObj.meaning, pool, pool), pickAnswer(wordObj), pickAnswer),
       mode: asPicture ? 'word_to_picture' : 'word_to_meaning'
     };
@@ -625,11 +628,13 @@
     return pool;
   }
 
-  // Leaves out words whose meaning is the category of the answer, such as "djur" when the answer is "hund".
+  // Leaves out options that also fit the answer: its category ("djur" for "hund")
+  // and, for a category word, its members ("hund" for "djur").
   function withoutCategoriesOf(words, meaning) {
+    const ownMembers = curriculum.categories[meaning] || [];
     return words.filter(function (item) {
       const members = curriculum.categories[item.meaning];
-      return !members || !members.includes(meaning);
+      return (!members || !members.includes(meaning)) && !ownMembers.includes(item.meaning);
     });
   }
 
@@ -784,7 +789,7 @@
       quiz.correct += 1;
       quiz.feedback = '✅ Rätt!';
     } else {
-      quiz.feedback = '❌ Inte riktigt. Rätt svar: ' + question.answer;
+      quiz.feedback = '❌ Inte riktigt. Rätt svar: ' + (question.answerLabel || question.answer);
     }
     quiz.answered = { value: value, correct: correct };
 
@@ -841,7 +846,7 @@
       session.feedback = '✅ Rätt svar!';
     } else {
       session.streak = 0;
-      session.feedback = '❌ Fel, rätt svar är ' + question.answer;
+      session.feedback = '❌ Fel, rätt svar är ' + (question.answerLabel || question.answer);
     }
     session.answered = { value: value, correct: correct };
 
@@ -883,6 +888,7 @@
     if (correct) {
       state.stats.totalCorrect += 1;
       state.stats.runStreak += 1;
+      state.stats.bestRunStreak = Math.max(state.stats.bestRunStreak || 0, state.stats.runStreak);
     } else {
       state.stats.runStreak = 0;
     }
@@ -914,7 +920,7 @@
       streak_7: state.streak.best >= 7,
       correct_50: state.stats.totalCorrect >= 50,
       correct_200: state.stats.totalCorrect >= 200,
-      fast_lightning: state.stats.runStreak >= 20,
+      fast_lightning: (state.stats.bestRunStreak || 0) >= 20,
       perfect_session: Boolean(session && session.done && session.correct === session.questions.length)
     };
     Object.keys(checks).forEach(function (id) {
@@ -1078,6 +1084,7 @@
       '<button class="btn-main" data-action="go-learn">🎓 Lär dig</button>' +
       '<button class="btn-main" data-action="go-practice">🎮 Öva</button>' +
       '<button class="btn-main" data-action="go-progress">⭐ Mina framsteg</button>' +
+      '<button class="btn-soft" data-action="switch-profile">👤 Byt barn</button>' +
       '<button class="btn-soft" data-action="go-romaji">📖 Så läser du romaji</button>' +
       '</article>' +
       '<article class="card progress-wrap">' +
@@ -1187,6 +1194,7 @@
         }
         learnBody =
           '<article class="card"><h3>Mini-quiz (' + (quiz.index + 1) + '/' + quiz.questions.length + ')</h3>' +
+          '<p><strong>' + (q.type !== 'word' ? 'Välj rätt romaji' : q.kind === 'picture' ? 'Vilken bild passar ordet?' : 'Vad betyder ordet?') + '</strong></p>' +
           bigCharHtml(q.promptChar) +
           optionButtonsHtml(q, quiz.answered, 'answer-learn-quiz') +
           feedbackHtml(quiz.feedback, quiz.answered) +
@@ -1208,14 +1216,14 @@
           : current.tip
             ? current.tip + ' <button class="link-btn" data-action="go-romaji">📖 Så läser du romaji</button>'
             : 'Tryck på ljudknappen flera gånger och härma uttalet.') + '</p>' +
-        (learn.writing ? writingPadHtml(isWordUnit ? current.word : current.char) : '') +
+        (learn.writing && !isWordUnit ? writingPadHtml(current.char) : '') +
         '<div class="action-row" style="grid-template-columns:repeat(4,minmax(0,1fr));">' +
         '<button class="btn-soft" data-action="learn-prev">← Förra</button>' +
         '<button class="btn-soft" data-action="learn-speak">🔊 Ljud</button>' +
         '<button class="btn-soft" data-action="learn-next">Nästa →</button>' +
         '<button class="btn-main" data-action="start-learn-quiz">' + (isWordUnit ? 'Starta ord-quiz' : 'Starta mini-quiz') + '</button>' +
         '</div>' +
-        '<button class="btn-soft" data-action="toggle-writing" style="margin-top:10px;">' + (learn.writing ? 'Stäng skrivrutan' : '✍️ Skriv tecknet') + '</button>' +
+        (isWordUnit ? '' : '<button class="btn-soft" data-action="toggle-writing" style="margin-top:10px;">' + (learn.writing ? 'Stäng skrivrutan' : '✍️ Skriv tecknet') + '</button>') +
         '</article>';
     }
 
@@ -1288,7 +1296,7 @@
     context.lineCap = 'round';
     context.lineJoin = 'round';
     context.strokeStyle = '#1f2a44';
-    let drawing = false;
+    let activePointer = null;
 
     function point(event) {
       const rect = canvas.getBoundingClientRect();
@@ -1298,15 +1306,21 @@
       };
     }
 
+    // One finger at a time, so a resting palm does not join strokes together.
     canvas.addEventListener('pointerdown', function (event) {
-      drawing = true;
+      if (activePointer !== null) {
+        return;
+      }
+      activePointer = event.pointerId;
       canvas.setPointerCapture(event.pointerId);
       const start = point(event);
       context.beginPath();
       context.moveTo(start.x, start.y);
+      context.lineTo(start.x, start.y);
+      context.stroke();
     });
     canvas.addEventListener('pointermove', function (event) {
-      if (!drawing) {
+      if (event.pointerId !== activePointer) {
         return;
       }
       const next = point(event);
@@ -1314,8 +1328,10 @@
       context.stroke();
     });
     ['pointerup', 'pointercancel'].forEach(function (type) {
-      canvas.addEventListener(type, function () {
-        drawing = false;
+      canvas.addEventListener(type, function (event) {
+        if (event.pointerId === activePointer) {
+          activePointer = null;
+        }
       });
     });
   }
@@ -1487,6 +1503,9 @@
     'pick-word-lesson': ['#learn-focus'],
     'start-practice': ['[data-action="answer-practice"]'],
     'start-learn-quiz': ['[data-action="answer-learn-quiz"]'],
+    'choose-profile': ['[data-action="go-learn"]'],
+    'add-profile': ['[data-action="go-learn"]'],
+    'switch-profile': ['[data-action="start-game"]'],
     'retry-learn-quiz': ['[data-action="answer-learn-quiz"]']
   };
 
@@ -1614,6 +1633,8 @@
       })) {
         switchProfile(value);
       }
+    } else if (action === 'switch-profile') {
+      setView('intro');
     } else if (action === 'add-profile') {
       addProfile();
     } else if (action === 'toggle-writing') {
@@ -1625,7 +1646,7 @@
       startLearnQuiz();
       render();
     } else if (action === 'reset-progress') {
-      if (window.confirm('Vill du nollställa alla framsteg? Det går inte att ångra.')) {
+      if (window.confirm('Vill du nollställa alla framsteg för ' + currentProfile().name + '? Det går inte att ångra.')) {
         state = createInitialState();
         state.view = 'progress';
         render();

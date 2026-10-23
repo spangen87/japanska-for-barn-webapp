@@ -128,6 +128,7 @@
         picked.push(choice);
       } else {
         // Only same-key items are left in this round: borrow one from the next round instead.
+        // The borrowed item stays in the next round, so with shared keys it can come back soon.
         const others = items.filter(differs);
         picked.push(weightedChoice(others.length ? others : remaining, weight));
       }
