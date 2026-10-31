@@ -7,6 +7,7 @@
   let pendingLearnFocus = false;
   let lastSpokenCard = '';
   let lastSpokenQuestion = '';
+  let lastSpokenQuizQuestion = '';
 
   const BADGES = [
     { id: 'hiragana_beginner', icon: '🌸', name: 'Hiragana-nybörjare', rule: 'Klara första hiragana-gruppen.' },
@@ -46,7 +47,15 @@
       });
     });
 
-    return { name: data.name, groups: groups, chars: groups.flat(), wordGroups: data.wordGroups };
+    return {
+      name: data.name,
+      groups: groups,
+      groupIds: data.groups.map(function (group) {
+        return group.id;
+      }),
+      chars: groups.flat(),
+      wordGroups: data.wordGroups
+    };
   }
 
   function pronunciationTip(romaji) {
@@ -100,6 +109,8 @@
         hiragana: new Array(ALPHABETS.hiragana.groups.length).fill(false),
         katakana: new Array(ALPHABETS.katakana.groups.length).fill(false)
       },
+      completedGroupIds: { hiragana: [], katakana: [] },
+      completedWordLessonIds: { hiragana: [], katakana: [] },
       completedWordLessons: {
         hiragana: new Array(ALPHABETS.hiragana.wordGroups.length).fill(false),
         katakana: new Array(ALPHABETS.katakana.wordGroups.length).fill(false)
@@ -132,6 +143,7 @@
       const merged = deepMerge(baseline, parsed);
       merged.view = 'intro';
       merged.learn = clampLearnPosition(merged.learn);
+      restoreCompletionFromIds(merged, parsed);
       // Word progress is keyed by word, so it is copied as-is rather than merged against a baseline.
       merged.wordProgress = parsed.wordProgress && typeof parsed.wordProgress === 'object' ? parsed.wordProgress : {};
       return merged;
@@ -234,14 +246,56 @@
     render();
   }
 
+  function askName(question) {
+    return (window.prompt(question) || '').trim().slice(0, 30);
+  }
+
   function addProfile() {
-    const name = (window.prompt('Vad heter barnet?') || '').trim();
+    // The first child still has the default name; ask for it so siblings can tell profiles apart.
+    if (profiles.list.length === 1 && profiles.list[0].name === 'Barn 1') {
+      const firstName = askName('Vad heter barnet som redan spelar?');
+      if (!firstName) {
+        return;
+      }
+      profiles.list[0].name = firstName;
+    }
+    const name = askName('Vad heter det nya barnet?');
     if (!name) {
+      saveProfiles();
       return;
     }
     const id = 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
-    profiles.list.push({ id: id, name: name.slice(0, 30) });
+    profiles.list.push({ id: id, name: name });
     switchProfile(id);
+  }
+
+  function renameProfile() {
+    const name = askName('Vad ska ' + currentProfile().name + ' heta?');
+    if (name) {
+      currentProfile().name = name;
+      saveProfiles();
+      render();
+    }
+  }
+
+  function removeProfile() {
+    const profile = currentProfile();
+    if (profiles.list.length < 2 || !window.confirm('Vill du ta bort ' + profile.name + ' och alla framsteg? Det går inte att ångra.')) {
+      return;
+    }
+    try {
+      localStorage.removeItem(profileStorageKey());
+    } catch (error) {
+      // Nothing saved to remove.
+    }
+    profiles.list = profiles.list.filter(function (candidate) {
+      return candidate.id !== profile.id;
+    });
+    profiles.active = profiles.list[0].id;
+    saveProfiles();
+    state = loadState();
+    state.view = 'home';
+    render();
   }
 
   function escapeHtml(text) {
@@ -250,7 +304,42 @@
     });
   }
 
+  // Completion is saved by group id as well as by position; on load the ids win, so a ✅ stays
+  // with its group even if the curriculum is reordered.
+  function restoreCompletionFromIds(target, saved) {
+    ['hiragana', 'katakana'].forEach(function (alphabetId) {
+      const groupIds = saved.completedGroupIds && saved.completedGroupIds[alphabetId];
+      if (Array.isArray(groupIds)) {
+        target.completedGroups[alphabetId] = ALPHABETS[alphabetId].groupIds.map(function (id) {
+          return groupIds.includes(id);
+        });
+      }
+      const wordIds = saved.completedWordLessonIds && saved.completedWordLessonIds[alphabetId];
+      if (Array.isArray(wordIds)) {
+        target.completedWordLessons[alphabetId] = ALPHABETS[alphabetId].wordGroups.map(function (group) {
+          return wordIds.includes(group.id);
+        });
+      }
+    });
+  }
+
+  function syncCompletionIds() {
+    ['hiragana', 'katakana'].forEach(function (alphabetId) {
+      state.completedGroupIds[alphabetId] = ALPHABETS[alphabetId].groupIds.filter(function (id, index) {
+        return state.completedGroups[alphabetId][index];
+      });
+      state.completedWordLessonIds[alphabetId] = ALPHABETS[alphabetId].wordGroups
+        .filter(function (group, index) {
+          return state.completedWordLessons[alphabetId][index];
+        })
+        .map(function (group) {
+          return group.id;
+        });
+    });
+  }
+
   function saveState() {
+    syncCompletionIds();
     try {
       localStorage.setItem(profileStorageKey(), JSON.stringify(state));
     } catch (error) {
@@ -386,6 +475,7 @@
   }
 
   function startLearnQuiz() {
+    lastSpokenQuizQuestion = '';
     const learn = state.learn;
     let questions = [];
     if (learn.unit === 'words') {
@@ -1189,9 +1279,11 @@
           quizResultButtonsHtml(pct >= 80, isWordQuiz) + '</article>';
       } else {
         const q = quiz.questions[quiz.index];
-        if (quiz.answered) {
+        const quizKey = quiz.index + '|' + Boolean(quiz.answered);
+        if (quiz.answered && quizKey !== lastSpokenQuizQuestion) {
           speak(q.promptChar);
         }
+        lastSpokenQuizQuestion = quizKey;
         learnBody =
           '<article class="card"><h3>Mini-quiz (' + (quiz.index + 1) + '/' + quiz.questions.length + ')</h3>' +
           '<p><strong>' + (q.type !== 'word' ? 'Välj rätt romaji' : q.kind === 'picture' ? 'Vilken bild passar ordet?' : 'Vad betyder ordet?') + '</strong></p>' +
@@ -1291,8 +1383,14 @@
     if (!canvas || typeof canvas.getContext !== 'function') {
       return;
     }
+    // Match the canvas to the screen's pixel density so strokes stay sharp.
+    const size = Math.round(canvas.getBoundingClientRect().width * (window.devicePixelRatio || 1));
+    if (size > 0) {
+      canvas.width = size;
+      canvas.height = size;
+    }
     const context = canvas.getContext('2d');
-    context.lineWidth = 28;
+    context.lineWidth = canvas.width * 0.047;
     context.lineCap = 'round';
     context.lineJoin = 'round';
     context.strokeStyle = '#1f2a44';
@@ -1459,7 +1557,11 @@
       '<article class="card"><h3>Hiragana nivåer</h3>' + hiraGrid + '</article>' +
       '<article class="card"><h3>Katakana nivåer</h3>' + kataGrid + '</article>' +
       '<article class="card"><h3>För föräldrar</h3><p class="muted">Börja om från början, till exempel när ett syskon ska använda appen.</p>' +
-      '<button class="btn-soft" data-action="reset-progress">Nollställ framsteg</button></article>' +
+      '<div class="quiz-result-actions">' +
+      '<button class="btn-soft" data-action="reset-progress">Nollställ framsteg</button>' +
+      '<button class="btn-soft" data-action="rename-profile">✏️ Byt namn på ' + escapeHtml(currentProfile().name) + '</button>' +
+      (profiles.list.length > 1 ? '<button class="btn-soft" data-action="remove-profile">🗑️ Ta bort ' + escapeHtml(currentProfile().name) + '</button>' : '') +
+      '</div></article>' +
       '</section>';
   }
 
@@ -1511,7 +1613,7 @@
 
   function restoreFocus(action, value) {
     const selectors = (FOCUS_AFTER[action] || []).concat(
-      value ? ['[data-action="' + action + '"][data-value="' + value + '"]'] : [],
+      value ? ['[data-action="' + action + '"][data-value="' + String(value).replace(/["\\]/g, '\\$&') + '"]'] : [],
       ['[data-action="' + action + '"]']
     );
     for (let i = 0; i < selectors.length; i += 1) {
@@ -1633,6 +1735,10 @@
       })) {
         switchProfile(value);
       }
+    } else if (action === 'rename-profile') {
+      renameProfile();
+    } else if (action === 'remove-profile') {
+      removeProfile();
     } else if (action === 'switch-profile') {
       setView('intro');
     } else if (action === 'add-profile') {

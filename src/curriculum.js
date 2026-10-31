@@ -53,6 +53,7 @@
 
   function words(afterGroup, list) {
     return {
+      id: list[0][0],
       afterGroup: afterGroup,
       words: list.map(function (entry) {
         return { word: entry[0], romaji: entry[1], meaning: entry[2], emoji: entry[3] };
@@ -592,7 +593,15 @@
         })
       };
     });
-    return base.concat([ruleGroup], voiced, combo);
+    return withIds(base.concat([ruleGroup], voiced, combo));
+  }
+
+  // A group's id is its first item, so saved progress follows the group even if groups move.
+  function withIds(groups) {
+    return groups.map(function (group) {
+      group.id = group.items[0].char;
+      return group;
+    });
   }
 
   const curriculum = {
@@ -603,12 +612,12 @@
     },
     katakana: {
       name: 'Katakana',
-      groups: buildKanaGroups(toKatakana, { items: KATAKANA_RULE_ITEMS, teaches: ['ッ', 'ー'] }).concat([{
+      groups: buildKanaGroups(toKatakana, { items: KATAKANA_RULE_ITEMS, teaches: ['ッ', 'ー'] }).concat(withIds([{
         items: parseRow(LOANWORD_ROW).map(function (item) {
           item.tip = loanwordTip(item);
           return item;
         })
-      }]),
+      }])),
       wordGroups: KATAKANA_WORD_GROUPS
     },
     categories: CATEGORIES,

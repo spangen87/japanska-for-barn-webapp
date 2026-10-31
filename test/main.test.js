@@ -23,6 +23,24 @@ function loadApp(savedState, extraStorage, options) {
   const voicesUsed = [];
   const focused = [];
   const announcer = { textContent: '' };
+  // A fake canvas that records drawing calls, so the writing pad can be tested.
+  const drawn = [];
+  const canvasHandlers = {};
+  const canvas = {
+    width: 600,
+    height: 600,
+    getContext: () => ({
+      beginPath: () => drawn.push('begin'),
+      moveTo: () => {},
+      lineTo: () => drawn.push('line'),
+      stroke: () => drawn.push('stroke')
+    }),
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 300, height: 300 }),
+    addEventListener: (type, fn) => {
+      canvasHandlers[type] = fn;
+    },
+    setPointerCapture: () => {}
+  };
   const appElement = {
     innerHTML: '',
     listener: null,
@@ -39,9 +57,14 @@ function loadApp(savedState, extraStorage, options) {
     }
   };
   const context = {
-    document: { getElementById: (id) => (id === 'announcer' ? announcer : appElement) },
+    document: {
+      getElementById: (id) => (id === 'announcer' ? announcer : id === 'writing-canvas' ? canvas : appElement)
+    },
     localStorage: {
       getItem: (key) => (key in storage ? storage[key] : null),
+      removeItem: (key) => {
+        delete storage[key];
+      },
       setItem: (key, value) => {
         if (opts.failStorageWrites) {
           throw new Error('QuotaExceededError');
@@ -61,7 +84,9 @@ function loadApp(savedState, extraStorage, options) {
       }
     },
     confirm: (text) => (context.confirmHook ? context.confirmHook(text) : opts.confirm !== false),
-    prompt: () => (opts.prompt === undefined ? null : opts.prompt),
+    // A list of answers is used one prompt at a time.
+    prompt: () => (Array.isArray(opts.prompt) ? (opts.prompt.length ? opts.prompt.shift() : null) : opts.prompt === undefined ? null : opts.prompt),
+    devicePixelRatio: opts.devicePixelRatio || 1,
     SpeechSynthesisUtterance: function (text) {
       this.text = text;
     },
@@ -80,6 +105,9 @@ function loadApp(savedState, extraStorage, options) {
     focused: focused,
     announced: () => announcer.textContent,
     stored: (key) => (key in storage ? JSON.parse(storage[key]) : null),
+    canvas: canvas,
+    drawn: drawn,
+    pointer: (type, event) => canvasHandlers[type](event),
     // Like click, but fails when no such button is on screen.
     clickVisible: (action, value) => {
       const attr = 'data-action="' + action + '"' + (value ? ' data-value="' + value + '"' : '');
@@ -1219,7 +1247,7 @@ test('voices finishing loading do not redraw the page when the warning stays hid
 });
 
 test('a parent can add a child, and each child keeps their own progress', () => {
-  const app = loadApp({ completedGroups: { hiragana: completedUpTo(3) } }, null, { prompt: 'Ella' });
+  const app = loadApp({ completedGroups: { hiragana: completedUpTo(3) } }, null, { prompt: ['Leo', 'Ella'] });
   app.click('add-profile');
 
   const profiles = app.stored('japanskaBarnApp.profiles');
@@ -1327,4 +1355,111 @@ test('the reset question names the child', () => {
   app.click('reset-progress');
 
   assert.match(asked, /Leo/);
+});
+
+test('adding a second child first asks the name of the child already playing', () => {
+  const app = loadApp(null, null, { prompt: ['Leo', 'Ella'] });
+  app.click('add-profile');
+
+  assert.deepEqual(app.stored('japanskaBarnApp.profiles').list.map((profile) => profile.name), ['Leo', 'Ella']);
+});
+
+test('a parent can rename the active child', () => {
+  const app = loadApp(null, { 'japanskaBarnApp.profiles': JSON.stringify({ active: 'default', list: [{ id: 'default', name: 'Leo' }] }) }, { prompt: 'Leopold' });
+  app.click('start-game');
+  app.click('go-progress');
+  app.clickVisible('rename-profile');
+
+  assert.equal(app.stored('japanskaBarnApp.profiles').list[0].name, 'Leopold');
+});
+
+test('a parent can remove a child and their saved progress', () => {
+  const profiles = { active: 'p2', list: [{ id: 'default', name: 'Leo' }, { id: 'p2', name: 'Ella' }] };
+  const app = loadApp(null, {
+    'japanskaBarnApp.profiles': JSON.stringify(profiles),
+    [STORAGE_KEY + ':p2']: JSON.stringify({ completedGroups: { hiragana: completedUpTo(2) } })
+  });
+  app.click('start-game');
+  app.click('go-progress');
+  app.clickVisible('remove-profile');
+
+  const saved = app.stored('japanskaBarnApp.profiles');
+  assert.deepEqual(saved.list.map((profile) => profile.name), ['Leo']);
+  assert.equal(saved.active, 'default');
+  assert.equal(app.stored(STORAGE_KEY + ':p2'), null);
+});
+
+test('the only child cannot be removed', () => {
+  const app = loadApp();
+  app.click('start-game');
+  app.click('go-progress');
+
+  assert.doesNotMatch(app.html(), /data-action="remove-profile"/);
+});
+
+test('a profile name with HTML is shown as text', () => {
+  const app = loadApp(null, { 'japanskaBarnApp.profiles': JSON.stringify({ active: 'default', list: [{ id: 'default', name: '<b>Leo</b>' }] }) });
+
+  assert.match(app.html(), /&lt;b&gt;Leo&lt;\/b&gt;/);
+  assert.doesNotMatch(app.html(), /<b>Leo<\/b>/);
+});
+
+test('an answered learn quiz question is not spoken again when the page redraws', () => {
+  const app = loadApp();
+  app.click('go-learn');
+  app.click('start-learn-quiz');
+  const question = app.state().learn.quiz.questions[0];
+  app.click('answer-learn-quiz', { value: question.answer });
+  const spokenAfterAnswer = app.spoken.length;
+  app.click('toggle-groups');
+
+  assert.equal(app.spoken.length, spokenAfterAnswer);
+});
+
+test('an answered practice question is spoken once and not again on redraw', () => {
+  const app = loadApp(SEEN_FIRST_HIRAGANA_ROW);
+  app.click('go-practice');
+  app.click('start-practice');
+  const question = app.state().practice.session.questions[0];
+  const before = app.spoken.length;
+  app.click('answer-practice', { value: question.answer });
+  assert.equal(app.spoken.length, before + 1);
+
+  app.click('set-practice-alphabet', { value: 'hiragana' });
+  assert.equal(app.spoken.length, before + 1);
+});
+
+test('completed groups follow the group, not its position, in saved progress', () => {
+  const app = loadApp({
+    completedGroups: { hiragana: completedUpTo(0) },
+    completedGroupIds: { hiragana: ['か'], katakana: [] }
+  });
+  app.click('go-learn');
+
+  assert.equal(app.state().completedGroups.hiragana[1], true);
+  assert.deepEqual(app.state().completedGroupIds.hiragana, ['か']);
+});
+
+test('the writing pad matches the screen resolution', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 0, cardIndex: 0 } }, null, { devicePixelRatio: 3 });
+  app.click('go-learn');
+  app.click('toggle-writing');
+
+  assert.equal(app.canvas.width, 900);
+});
+
+test('the writing pad draws a dot on tap and follows only one finger', () => {
+  const app = loadApp({ learn: { alphabet: 'hiragana', unit: 'group', groupIndex: 0, cardIndex: 0 } });
+  app.click('go-learn');
+  app.click('toggle-writing');
+  app.pointer('pointerdown', { clientX: 100, clientY: 100, pointerId: 1 });
+  assert.ok(app.drawn.includes('stroke'));
+
+  const before = app.drawn.length;
+  app.pointer('pointerdown', { clientX: 10, clientY: 10, pointerId: 2 });
+  app.pointer('pointermove', { clientX: 20, clientY: 20, pointerId: 2 });
+  assert.equal(app.drawn.length, before);
+
+  app.pointer('pointermove', { clientX: 120, clientY: 120, pointerId: 1 });
+  assert.ok(app.drawn.length > before);
 });

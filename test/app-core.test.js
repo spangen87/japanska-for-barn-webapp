@@ -174,3 +174,12 @@ test('pickRounds draws items in proportion to their weight', () => {
   }
   assert.ok(heavyFirst > 720 && heavyFirst < 880, String(heavyFirst));
 });
+
+test('pickRounds still uses every item once per round when keys are unique', () => {
+  const items = [{ key: 'a' }, { key: 'b' }, { key: 'c' }, { key: 'd' }];
+  for (let run = 0; run < 30; run += 1) {
+    const picked = core.pickRounds(items, 8, null, (item) => item.key);
+    assert.deepEqual(picked.slice(0, 4).map((item) => item.key).sort(), ['a', 'b', 'c', 'd']);
+    assert.deepEqual(picked.slice(4).map((item) => item.key).sort(), ['a', 'b', 'c', 'd']);
+  }
+});

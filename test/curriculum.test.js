@@ -126,6 +126,16 @@ test('the romaji guide covers the tricky letters', () => {
   });
 });
 
+test('lesson groups and word groups have ids that are unique within each alphabet', () => {
+  ['hiragana', 'katakana'].forEach((alphabetId) => {
+    const groupIds = curriculum[alphabetId].groups.map((group) => group.id);
+    const wordGroupIds = curriculum[alphabetId].wordGroups.map((group) => group.id);
+    assert.equal(new Set(groupIds).size, groupIds.length);
+    assert.equal(new Set(wordGroupIds).size, wordGroupIds.length);
+    groupIds.concat(wordGroupIds).forEach((id) => assert.ok(id));
+  });
+});
+
 test('penguins count as birds', () => {
   assert.ok(curriculum.categories['fågel'].includes('pingvin'));
 });
